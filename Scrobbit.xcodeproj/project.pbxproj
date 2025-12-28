@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		83EB03B22F00EE8C00CF409A /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		8379578C2EFC5C9D007BD177 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		8379577C2EFC5C9C007BD177 /* Scrobbit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scrobbit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8379578B2EFC5C9D007BD177 /* ScrobbitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScrobbitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		837957952EFC5C9D007BD177 /* ScrobbitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScrobbitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +80,7 @@
 		837957732EFC5C9C007BD177 = {
 			isa = PBXGroup;
 			children = (
+				83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */,
 				8379577E2EFC5C9C007BD177 /* Scrobbit */,
 				8379578E2EFC5C9D007BD177 /* ScrobbitTests */,
 				837957982EFC5C9D007BD177 /* ScrobbitUITests */,
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83EB03B22F00EE8C00CF409A /* Launch Screen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,6 +402,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = H2Q833KX49;
@@ -428,6 +436,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = H2Q833KX49;
