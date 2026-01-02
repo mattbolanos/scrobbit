@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  Scrobbit
-//
-//  Created by Matt Bolaños on 12/24/25.
-//
-
 import SwiftUI
 
 struct MainTabView: View {

@@ -1,0 +1,5 @@
+// Copy this file to Debug.xcconfig and fill in your Last.fm API credentials
+// Get your API key and secret at: https://www.last.fm/api/account/create
+
+LASTFM_API_KEY = YOUR_API_KEY_HERE
+LASTFM_API_SECRET = YOUR_API_SECRET_HERE
