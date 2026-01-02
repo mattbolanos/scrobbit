@@ -1,0 +1,60 @@
+{
+  "fill" : "system-dark",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "darken"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "darken"
+            }
+          ],
+          "fill-specializations" : [
+            {
+              "value" : "none"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "automatic"
+            }
+          ],
+          "glass-specializations" : [
+            {
+              "value" : false
+            },
+            {
+              "idiom" : "square",
+              "value" : false
+            },
+            {
+              "appearance" : "tinted",
+              "idiom" : "square",
+              "value" : false
+            }
+          ],
+          "hidden" : false,
+          "image-name" : "scrobbit.png",
+          "name" : "scrobbit"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		837BF29D2F077D7F0062EB89 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 837BF29C2F077D7F0062EB89 /* AppIcon.icon */; };
 		83EB03B22F00EE8C00CF409A /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +32,7 @@
 		8379577C2EFC5C9C007BD177 /* Scrobbit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scrobbit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8379578B2EFC5C9D007BD177 /* ScrobbitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScrobbitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		837957952EFC5C9D007BD177 /* ScrobbitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScrobbitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		837BF29C2F077D7F0062EB89 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -85,6 +87,7 @@
 				8379578E2EFC5C9D007BD177 /* ScrobbitTests */,
 				837957982EFC5C9D007BD177 /* ScrobbitUITests */,
 				8379577D2EFC5C9C007BD177 /* Products */,
+				837BF29C2F077D7F0062EB89 /* AppIcon.icon */,
 			);
 			sourceTree = "<group>";
 		};
@@ -219,6 +222,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				83EB03B22F00EE8C00CF409A /* Launch Screen.storyboard in Resources */,
+				837BF29D2F077D7F0062EB89 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -414,7 +418,7 @@
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -449,7 +453,7 @@
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

@@ -25,7 +25,9 @@ struct MainTabView: View {
                 Tab("Settings", systemImage: "gearshape") {
                     SettingsView()
                 }
-            }.tint(.red)
+            }
+            .tint(.red)
+            
         } else {
            TabView {
             HomeView()
@@ -42,7 +44,8 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Settings", systemImage: "gearshape")
                 }
-            }
+           }
+           .tint(.red)
         }
     }
 }
