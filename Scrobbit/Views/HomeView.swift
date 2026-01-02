@@ -8,26 +8,50 @@
 import SwiftUI
 
 struct HomeView: View {
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         NavigationStack {
-            VStack {
-                    HStack {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .foregroundColor(.red)
-                        Text("Connect your Last.fm account to start scrobbling")
-                            .font(.subheadline)
-                        Spacer()
-                        Image(systemName: "chevron.right")
+                HStack (spacing: 12) {
+                    ZStack {
+                          Circle()
+                            .fill(.red.opacity(0.15))
+                              .frame(width: 44, height: 44)
+                          
+                        Image("last-fm")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 28, height: 28)
+                              
+                      }
+                    
+
+                    Text("Connect Last.fm account")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+      
+                    Spacer()
+                    Image(systemName: "chevron.right")
                             .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(10)
-                    .padding()
-                
+                }
+                .padding()
+                .background(
+                    colorScheme == .dark ?
+                    Color.red.opacity(0.2) :
+                    Color.red.opacity(0.05)
+                )
+                .cornerRadius(16)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                       RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(.red.opacity(0.5), lineWidth: 2)
+                   )
+                .padding()
+            
                 Spacer()
-            }
+
+            
             .navigationTitle("Home")
         }
     }
