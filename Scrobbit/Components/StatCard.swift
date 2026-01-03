@@ -9,7 +9,7 @@ struct StatCard: View {
     @State private var appeared = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: icon)
                     .font(.title2)
@@ -20,7 +20,7 @@ struct StatCard: View {
             
             Spacer()
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 AnimatedNumberView(
                     value: appeared ? value : 0,
                     font: .title,
@@ -32,20 +32,11 @@ struct StatCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, minHeight: 120)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(color.opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(color.opacity(0.3), lineWidth: 1)
-        )
+        .cardStyle(color: color)
         .scaleEffect(appeared ? 1 : 0.9)
         .opacity(appeared ? 1 : 0)
         .onAppear {
-            withAnimation(.spring(duration: 0.6, bounce: 0.4)) {
+            withAnimation(Theme.Animation.lively) {
                 appeared = true
             }
         }
@@ -56,10 +47,9 @@ struct StatCard: View {
     StatCard(
         title: "Scrobbles",
         value: 70494,
-        icon: "music.note",
-        color: .red
+        icon: "music.quarternote.3",
+        color: Theme.Colors.scrobbles
     )
     .frame(width: 180)
     .padding()
 }
-

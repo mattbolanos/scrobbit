@@ -64,6 +64,13 @@ final class LastFmService: NSObject {
 
         try await getSession(token: token)
     }
+
+    func signOut() {
+        KeychainService.clearAll()
+        sessionKey = nil
+        username = ""
+        isAuthenticated = false
+    }
     
     func fetchUserInfo() async throws {
         guard isAuthenticated, !username.isEmpty else {

@@ -3,21 +3,36 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(LastFmService.self) var lastFmService
+    @Environment(AppleMusicService.self) var appleMusicService
     
     @State private var isLoadingUserInfo = false
+    @State private var showConnectSheet = false
     
     private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.flexible(), spacing: Theme.Spacing.md),
+        GridItem(.flexible(), spacing: Theme.Spacing.md)
     ]
+    
+    private var connectedCount: Int {
+        var count = 0
+        if lastFmService.isAuthenticated { count += 1 }
+        if appleMusicService.isAuthorized { count += 1 }
+        return count
+    }
+    
+    private var isFullyConnected: Bool {
+        connectedCount == 2
+    }
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    if !lastFmService.isAuthenticated {
-                        connectButton
-                    } else {
+                VStack(spacing: Theme.Spacing.xl) {
+                    if !isFullyConnected {
+                        connectAccountsButton
+                    }
+                    
+                    if lastFmService.isAuthenticated {
                         authenticatedContent
                     }
                 }
@@ -27,52 +42,62 @@ struct HomeView: View {
             .task {
                 await loadUserInfoIfNeeded()
             }
+            .sheet(isPresented: $showConnectSheet) {
+                ConnectAccountsSheet()
+            }
         }
     }
     
-    // MARK: - Connect Button
+    // MARK: - Connect Accounts Button
     
-    private var connectButton: some View {
+    private var connectAccountsButton: some View {
         Button {
-            Task {
-                try? await lastFmService.authenticate()
-            }
+            showConnectSheet = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: Theme.Spacing.md) {
                 ZStack {
                     Circle()
-                        .fill(.red.opacity(0.15))
-                        .frame(width: 44, height: 44)
+                        .fill(Theme.Colors.accent.opacity(Theme.Opacity.medium))
+                        .frame(width: Theme.Size.iconContainer, height: Theme.Size.iconContainer)
                     
-                    Image("last-fm")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 28, height: 28)
+                    Image(systemName: "person.crop.circle.badge.plus")
+                        .font(.system(size: Theme.Size.iconSmall, weight: .semibold))
+                        .foregroundStyle(Theme.Colors.accent)
                 }
-                VStack(alignment: .leading) {
-                    Text("Last.fm")
+                
+                VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                    Text("Connect Accounts")
                         .font(.headline)
                     
-                    Text(lastFmService.statusDescription)
+                    Text("Link your music services")
                         .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
+                // Progress indicator
+                ZStack {
+                    Circle()
+                        .stroke(.secondary.opacity(Theme.Opacity.border), lineWidth: Theme.StrokeWidth.thick)
+                        .frame(width: Theme.Size.progressIndicator, height: Theme.Size.progressIndicator)
+                    
+                    Circle()
+                        .trim(from: 0, to: CGFloat(connectedCount) / 2.0)
+                        .stroke(Theme.Colors.accent, style: StrokeStyle(lineWidth: Theme.StrokeWidth.thick, lineCap: .round))
+                        .frame(width: Theme.Size.progressIndicator, height: Theme.Size.progressIndicator)
+                        .rotationEffect(.degrees(-90))
+                    
+                    Text("\(connectedCount)/2")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
+                    .font(.footnote.weight(.semibold))
             }
-            .padding()
-            .background(
-                colorScheme == .dark ?
-                Color.red.opacity(0.2) :
-                Color.red.opacity(0.05)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(.red.opacity(0.5), lineWidth: 2)
-            )
+            .actionButtonStyle(color: Theme.Colors.accent, colorScheme: colorScheme)
         }
         .buttonStyle(.plain)
     }
@@ -92,33 +117,33 @@ struct HomeView: View {
     // MARK: - Stats Grid
     
     private func statsGrid(userInfo: User) -> some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        LazyVGrid(columns: columns, spacing: Theme.Spacing.md) {
             StatCard(
                 title: "Scrobbles",
                 value: userInfo.playcountInt,
                 icon: "music.note",
-                color: .red
+                color: Theme.Colors.scrobbles
             )
             
             StatCard(
                 title: "Artists",
                 value: userInfo.artistCountInt,
-                icon: "person.2.fill",
-                color: .purple
+                icon: "music.microphone",
+                color: Theme.Colors.artists
             )
             
             StatCard(
                 title: "Albums",
                 value: userInfo.albumCountInt,
                 icon: "square.stack.fill",
-                color: .blue
+                color: Theme.Colors.albums
             )
             
             StatCard(
                 title: "Tracks",
                 value: userInfo.trackCountInt,
                 icon: "waveform",
-                color: .green
+                color: Theme.Colors.tracks
             )
         }
     }
@@ -142,4 +167,5 @@ struct HomeView: View {
 #Preview {
     HomeView()
         .environment(LastFmService())
+        .environment(AppleMusicService())
 }

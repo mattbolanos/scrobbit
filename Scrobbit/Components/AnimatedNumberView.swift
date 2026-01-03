@@ -14,7 +14,7 @@ struct AnimatedNumberView: View {
             .foregroundStyle(color)
             .contentTransition(.numericText(value: Double(displayedValue)))
             .onChange(of: value, initial: true) { _, newValue in
-                withAnimation(.spring(duration: 0.8, bounce: 0.3)) {
+                withAnimation(Theme.Animation.numberCount) {
                     displayedValue = newValue
                 }
             }
@@ -24,4 +24,3 @@ struct AnimatedNumberView: View {
 #Preview {
     AnimatedNumberView(value: 12345, font: .title, color: .primary)
 }
-

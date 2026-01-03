@@ -19,7 +19,7 @@ struct MainTabView: View {
                     SettingsView()
                 }
             }
-            .tint(.red)
+            .tint(Theme.Colors.accent)
             
         } else {
            TabView {
@@ -38,7 +38,7 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
            }
-           .tint(.red)
+           .tint(Theme.Colors.accent)
         }
     }
 }
