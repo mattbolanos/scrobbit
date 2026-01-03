@@ -97,6 +97,9 @@ enum Theme {
         
         /// 120pt - Minimum card height
         static let cardMinHeight: CGFloat = 120
+        
+        /// 50pt - Album artwork size
+        static let artwork: CGFloat = 50
     }
     
     // MARK: - Stroke Width
@@ -204,6 +207,46 @@ extension View {
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                     .stroke(color.opacity(Theme.Opacity.borderStrong), lineWidth: Theme.StrokeWidth.medium)
             )
+    }
+    
+    /// Applies a shimmer loading effect
+    func shimmering() -> some View {
+        self.modifier(ShimmerModifier())
+    }
+}
+
+// MARK: - Shimmer Effect
+
+struct ShimmerModifier: ViewModifier {
+    @State private var phase: CGFloat = 0
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                GeometryReader { geometry in
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            .white.opacity(0.4),
+                            .clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: geometry.size.width * 0.6)
+                    .offset(x: -geometry.size.width * 0.3 + phase * geometry.size.width * 1.6)
+                    .blendMode(.sourceAtop)
+                }
+            )
+            .mask(content)
+            .onAppear {
+                withAnimation(
+                    .linear(duration: 1.5)
+                    .repeatForever(autoreverses: false)
+                ) {
+                    phase = 1
+                }
+            }
     }
 }
 

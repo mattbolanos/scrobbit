@@ -6,6 +6,8 @@ struct HomeView: View {
     @Environment(MusicKitService.self) var appleMusicService
     
     @State private var isLoadingUserInfo = false
+    @State private var isLoadingRecentlyPlayed = false
+    @State private var recentlyPlayedTracks: [Track] = []
     @State private var showConnectSheet = false
     
     private let columns = [
@@ -35,12 +37,17 @@ struct HomeView: View {
                     if lastFmService.isAuthenticated {
                         authenticatedContent
                     }
+                    
+                    if appleMusicService.isAuthorized {
+                        recentlyPlayedSection
+                    }
                 }
                 .padding()
             }
             .navigationTitle(lastFmService.username.isEmpty ? "Scrobbit" : lastFmService.username)
             .task {
                 await loadUserInfoIfNeeded()
+                await fetchRecentlyPlayedIfNeeded()
             }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet()
@@ -161,6 +168,115 @@ struct HomeView: View {
         } catch {
             print("Failed to load user info: \(error)")
         }
+    }
+    
+    // MARK: - Fetch Recently Played
+    
+    private func fetchRecentlyPlayedIfNeeded() async {
+        guard appleMusicService.isAuthorized else { return }
+        
+        isLoadingRecentlyPlayed = true
+        defer { isLoadingRecentlyPlayed = false }
+        
+        do {
+            recentlyPlayedTracks = try await appleMusicService.fetchRecentlyPlayed()
+        } catch {
+            print("Failed to fetch recently played: \(error)")
+        }
+    }
+    
+    // MARK: - Recently Played Section
+    
+    private var recentlyPlayedSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            Text("Recently Played")
+                .font(.title2.weight(.bold))
+            
+            if isLoadingRecentlyPlayed {
+                recentlyPlayedLoadingView
+            } else if recentlyPlayedTracks.isEmpty {
+                recentlyPlayedEmptyView
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(recentlyPlayedTracks.enumerated()), id: \.element.id) { index, track in
+                        TrackRow(track: track)
+                            .padding(.horizontal, Theme.Spacing.md)
+                            .padding(.vertical, Theme.Spacing.sm)
+                            .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
+                            .padding(.bottom, index == recentlyPlayedTracks.count - 1 ? -Theme.Spacing.sm : 0)
+                        
+                        if index < recentlyPlayedTracks.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+                .padding(.vertical, Theme.Spacing.sm)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+            }
+        }
+    }
+    
+    private var recentlyPlayedLoadingView: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<5, id: \.self) { index in
+                HStack(spacing: Theme.Spacing.md) {
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
+                        .fill(Color(.systemGray5))
+                        .frame(width: Theme.Size.artwork, height: Theme.Size.artwork)
+                    
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        RoundedRectangle(cornerRadius: Theme.CornerRadius.sm / 2, style: .continuous)
+                            .fill(Color(.systemGray5))
+                            .frame(width: 140, height: 14)
+                        
+                        RoundedRectangle(cornerRadius: Theme.CornerRadius.sm / 2, style: .continuous)
+                            .fill(Color(.systemGray6))
+                            .frame(width: 100, height: 12)
+                    }
+                    
+                    Spacer()
+                    
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.sm / 2, style: .continuous)
+                        .fill(Color(.systemGray6))
+                        .frame(width: 32, height: 12)
+                }
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.vertical, Theme.Spacing.sm)
+                .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
+                .padding(.bottom, index == 4 ? -Theme.Spacing.sm : 0)
+                
+                if index < 4 {
+                    Divider()
+                }
+            }
+        }
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .shimmering()
+    }
+    
+    private var recentlyPlayedEmptyView: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "music.note.list")
+                .font(.largeTitle)
+                .foregroundStyle(.tertiary)
+            
+            Text("No recently played tracks")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 120)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 }
 
