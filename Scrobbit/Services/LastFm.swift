@@ -17,6 +17,7 @@ final class LastFmService: NSObject {
     private(set) var isAuthenticated: Bool = false
     private(set) var username: String = ""
     private(set) var isAuthenticating: Bool = false
+    private(set) var userInfo: User?
     private var sessionKey: String?
     private var webAuthSession: ASWebAuthenticationSession?
 
@@ -62,6 +63,19 @@ final class LastFmService: NSObject {
         let token = try await performWebAuth(url: authURL)
 
         try await getSession(token: token)
+    }
+    
+    func fetchUserInfo() async throws {
+        guard isAuthenticated, !username.isEmpty else {
+            throw LastFmError.notAuthenticated
+        }
+        
+        let response: UserInfoResponse = try await fetch(
+            method: "user.getInfo",
+            params: [("user", username)]
+        )
+        
+        userInfo = response.user
     }
 
     // MARK: - Private Methods
@@ -178,6 +192,61 @@ final class LastFmService: NSObject {
         let digest = Insecure.MD5.hash(data: Data(signatureBase.utf8))
         return digest.map { String(format: "%02hhx", $0) }.joined()
     }
+    
+    // MARK: - Generic Fetch
+    
+    private func fetch<T: Decodable>(
+        method: String,
+        params: [(String, String)] = [],
+        requiresSignature: Bool = false
+    ) async throws -> T {
+        let apiKey = Secrets.lastFmApiKey
+        
+        var allParams: [(String, String)] = [
+            ("method", method),
+            ("api_key", apiKey)
+        ]
+        allParams.append(contentsOf: params)
+        
+        var components = URLComponents(string: Constants.baseURL)!
+        components.queryItems = allParams.map { URLQueryItem(name: $0.0, value: $0.1) }
+        
+        if requiresSignature {
+            let signature = generateSignature(params: allParams, secret: Secrets.lastFmApiSecret)
+            components.queryItems?.append(URLQueryItem(name: "api_sig", value: signature))
+        }
+        
+        components.queryItems?.append(URLQueryItem(name: "format", value: "json"))
+        
+        guard let url = components.url else {
+            throw LastFmError.invalidURL
+        }
+        
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw LastFmError.requestFailed
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw LastFmError.requestFailed
+        }
+        
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            // Check if it's a Last.fm API error
+            if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
+                throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
+            }
+            throw LastFmError.invalidResponse
+        }
+    }
+}
+
+private struct LastFmAPIError: Decodable {
+    let error: Int
+    let message: String
 }
 
 private struct SessionResponse: Decodable {
@@ -189,6 +258,51 @@ private struct SessionResponse: Decodable {
         let name: String
         let key: String
         let subscriber: Int
+    }
+}
+
+// MARK: - User Info Models
+
+struct UserInfoResponse: Decodable {
+    let user: User
+}
+
+struct User: Decodable {
+    let name: String
+    let playcount: String
+    let artistCount: String
+    let trackCount: String
+    let albumCount: String
+    let image: [LastFmImage]
+    let url: String
+    
+    enum CodingKeys: String, CodingKey {
+        case name, playcount, image, url
+        case artistCount = "artist_count"
+        case trackCount = "track_count"
+        case albumCount = "album_count"
+    }
+    
+    var playcountInt: Int { Int(playcount) ?? 0 }
+    var artistCountInt: Int { Int(artistCount) ?? 0 }
+    var trackCountInt: Int { Int(trackCount) ?? 0 }
+    var albumCountInt: Int { Int(albumCount) ?? 0 }
+    
+    var largeImageURL: URL? {
+        guard let urlString = image.first(where: { $0.size == "extralarge" })?.url ?? image.last?.url else {
+            return nil
+        }
+        return URL(string: urlString)
+    }
+}
+
+struct LastFmImage: Decodable {
+    let size: String
+    let url: String
+    
+    enum CodingKeys: String, CodingKey {
+        case size
+        case url = "#text"
     }
 }
 
