@@ -3,7 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(LastFmService.self) var lastFmService
-    @Environment(AppleMusicService.self) var appleMusicService
+    @Environment(MusicKitService.self) var appleMusicService
     
     @State private var isLoadingUserInfo = false
     @State private var showConnectSheet = false
@@ -121,7 +121,7 @@ struct HomeView: View {
             StatCard(
                 title: "Scrobbles",
                 value: userInfo.playcountInt,
-                icon: "music.note",
+                icon: "waveform",
                 color: Theme.Colors.scrobbles
             )
             
@@ -135,14 +135,14 @@ struct HomeView: View {
             StatCard(
                 title: "Albums",
                 value: userInfo.albumCountInt,
-                icon: "square.stack.fill",
+                icon: "music.note.square.stack.fill",
                 color: Theme.Colors.albums
             )
             
             StatCard(
                 title: "Tracks",
                 value: userInfo.trackCountInt,
-                icon: "waveform",
+                icon: "music.note.list",
                 color: Theme.Colors.tracks
             )
         }
@@ -167,5 +167,5 @@ struct HomeView: View {
 #Preview {
     HomeView()
         .environment(LastFmService())
-        .environment(AppleMusicService())
+        .environment(MusicKitService())
 }

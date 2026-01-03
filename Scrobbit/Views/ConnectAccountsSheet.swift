@@ -4,7 +4,11 @@ struct ConnectAccountsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(LastFmService.self) var lastFmService
-    @Environment(AppleMusicService.self) var appleMusicService
+    @Environment(MusicKitService.self) var appleMusicService
+    
+    private var isFullyConnected: Bool {
+        lastFmService.isAuthenticated && appleMusicService.isAuthorized
+    }
     
     var body: some View {
         NavigationStack {
@@ -27,7 +31,7 @@ struct ConnectAccountsSheet: View {
                     lastFmRow
                     appleMusicRow
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Theme.Spacing.xs)
                 
                 Spacer()
             }
@@ -48,6 +52,11 @@ struct ConnectAccountsSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
         .presentationBackground(.ultraThickMaterial)
+        .onChange(of: isFullyConnected) { _, newValue in
+            if newValue {
+                dismiss()
+            }
+        }
     }
     
     // MARK: - Last.fm Row
@@ -106,5 +115,5 @@ struct ConnectAccountsSheet: View {
 #Preview {
     ConnectAccountsSheet()
         .environment(LastFmService())
-        .environment(AppleMusicService())
+        .environment(MusicKitService())
 }

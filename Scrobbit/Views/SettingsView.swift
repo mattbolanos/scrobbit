@@ -3,7 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(LastFmService.self) var lastFmService
-    @Environment(AppleMusicService.self) var appleMusicService
+    @Environment(MusicKitService.self) var appleMusicService
     
     var body: some View {
         NavigationStack {
@@ -75,5 +75,5 @@ struct SettingsView: View {
 #Preview {
     SettingsView()
         .environment(LastFmService())
-        .environment(AppleMusicService())
+        .environment(MusicKitService())
 }

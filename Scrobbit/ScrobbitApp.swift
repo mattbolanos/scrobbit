@@ -4,7 +4,7 @@ import SwiftData
 @main
 struct ScrobbitApp: App {
     @State private var lastFmService = LastFmService()
-    @State private var appleMusicService = AppleMusicService()
+    @State private var appleMusicService = MusicKitService()
 
     var body: some Scene {
         WindowGroup {
