@@ -17,7 +17,7 @@ final class LastFmService: NSObject {
     private(set) var isAuthenticated: Bool = false
     private(set) var username: String = ""
     private(set) var isAuthenticating: Bool = false
-    private(set) var userInfo: User?
+    private(set) var userInfo: LastFmUser?
     private var sessionKey: String?
     private var webAuthSession: ASWebAuthenticationSession?
 
@@ -268,23 +268,22 @@ private struct SessionResponse: Decodable {
     }
 }
 
-// MARK: - User Info Models
+// MARK: - LastFmUser Models
 
 struct UserInfoResponse: Decodable {
-    let user: User
+    let user: LastFmUser
 }
 
-struct User: Decodable {
+struct LastFmUser: Decodable {
     let name: String
     let playcount: String
     let artistCount: String
     let trackCount: String
     let albumCount: String
-    let image: [LastFmImage]
     let url: String
     
     enum CodingKeys: String, CodingKey {
-        case name, playcount, image, url
+        case name, playcount, url
         case artistCount = "artist_count"
         case trackCount = "track_count"
         case albumCount = "album_count"
@@ -295,23 +294,8 @@ struct User: Decodable {
     var trackCountInt: Int { Int(trackCount) ?? 0 }
     var albumCountInt: Int { Int(albumCount) ?? 0 }
     
-    var largeImageURL: URL? {
-        guard let urlString = image.first(where: { $0.size == "extralarge" })?.url ?? image.last?.url else {
-            return nil
-        }
-        return URL(string: urlString)
-    }
 }
 
-struct LastFmImage: Decodable {
-    let size: String
-    let url: String
-    
-    enum CodingKeys: String, CodingKey {
-        case size
-        case url = "#text"
-    }
-}
 
 extension LastFmService: ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {

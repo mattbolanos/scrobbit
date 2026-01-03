@@ -5,8 +5,7 @@ struct StatCard: View {
     let value: Int
     let icon: String
     let color: Color
-    
-    @State private var appeared = false
+    var isSkeleton: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -22,9 +21,9 @@ struct StatCard: View {
             
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 AnimatedNumberView(
-                    value: appeared ? value : 0,
+                    value: value,
                     font: .title,
-                    color: .primary
+                    isSkeleton: isSkeleton
                 )
                 
                 Text(title)
@@ -33,13 +32,6 @@ struct StatCard: View {
             }
         }
         .cardStyle(color: color)
-        .scaleEffect(appeared ? 1 : 0.9)
-        .opacity(appeared ? 1 : 0)
-        .onAppear {
-            withAnimation(Theme.Animation.lively) {
-                appeared = true
-            }
-        }
     }
 }
 
@@ -49,6 +41,16 @@ struct StatCard: View {
         value: 70494,
         icon: "music.quarternote.3",
         color: Theme.Colors.scrobbles
+    )
+    .frame(width: 180)
+    .padding()
+    
+    StatCard(
+        title: "Scrobbles",
+        value: 0,
+        icon: "music.quarternote.3",
+        color: Theme.Colors.scrobbles,
+        isSkeleton: true
     )
     .frame(width: 180)
     .padding()
