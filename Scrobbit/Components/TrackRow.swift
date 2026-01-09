@@ -75,12 +75,7 @@ struct TrackRow: View {
             title: "Blinding Lights",
             artistName: "The Weeknd",
             albumTitle: "After Hours",
-            duration: 203,
-            lastPlayedDate: Date(),
-            artworkURL: nil,
-            url: nil,
-            contentRating: nil,
-            genreNames: nil
+            duration: 203
         ))
         
         Divider()
@@ -90,12 +85,7 @@ struct TrackRow: View {
             title: "Save Your Tears",
             artistName: "The Weeknd",
             albumTitle: "After Hours",
-            duration: 185,
-            lastPlayedDate: Date(),
-            artworkURL: nil,
-            url: nil,
-            contentRating: nil,
-            genreNames: nil
+            duration: 185
         ))
     }
     .padding()

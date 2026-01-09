@@ -84,6 +84,81 @@ final class LastFmService: NSObject {
         
         userInfo = response.user
     }
+    
+    // MARK: - Scrobbling
+    
+    /// Scrobbles a batch of tracks to Last.fm.
+    /// - Parameter tracks: Array of tracks to scrobble
+    /// - Returns: The number of tracks successfully accepted by Last.fm
+    @discardableResult
+    func scrobble(_ tracks: [Track]) async throws -> Int {
+        guard isAuthenticated, let sessionKey = sessionKey else {
+            throw LastFmError.notAuthenticated
+        }
+        
+        guard !tracks.isEmpty else { return 0 }
+        
+        // Last.fm allows up to 50 scrobbles per batch
+        let batch = Array(tracks.prefix(50))
+        
+        var params: [(String, String)] = [
+            ("method", "track.scrobble"),
+            ("api_key", Secrets.lastFmApiKey),
+            ("sk", sessionKey)
+        ]
+        
+        // Add indexed parameters for each track
+        for (index, track) in batch.enumerated() {
+            params.append(("artist[\(index)]", track.artistName))
+            params.append(("track[\(index)]", track.title))
+            params.append(("album[\(index)]", track.albumTitle))
+            
+            // Use estimated play time or current time
+            let timestamp = track.estimatedPlayTime ?? Date()
+            params.append(("timestamp[\(index)]", String(Int(timestamp.timeIntervalSince1970))))
+            
+            // Optional: duration in seconds
+            if let duration = track.duration {
+                params.append(("duration[\(index)]", String(Int(duration))))
+            }
+        }
+        
+        let response: ScrobbleResponse = try await post(params: params)
+        
+        return response.scrobbles.attr.accepted
+    }
+    
+    /// Fetches the user's recent scrobbles from Last.fm.
+    /// - Parameter limit: Maximum number of scrobbles to fetch (default: 50, max: 200)
+    /// - Returns: Array of recently scrobbled tracks
+    func fetchRecentScrobbles(limit: Int = 50) async throws -> [LastFmScrobble] {
+        guard isAuthenticated, !username.isEmpty else {
+            throw LastFmError.notAuthenticated
+        }
+        
+        let response: RecentTracksResponse = try await fetch(
+            method: "user.getRecentTracks",
+            params: [
+                ("user", username),
+                ("limit", String(min(limit, 200)))
+            ]
+        )
+        
+        // Filter out currently playing track (no date) and map to scrobbles
+        return response.recenttracks.track.compactMap { track -> LastFmScrobble? in
+            // Skip "now playing" tracks that don't have a date
+            guard let dateInfo = track.date else { return nil }
+            
+            return LastFmScrobble(
+                trackName: track.name,
+                artistName: track.artist.text,
+                albumName: track.album.text,
+                scrobbledAt: Date(timeIntervalSince1970: TimeInterval(dateInfo.uts) ?? 0),
+                artworkURL: track.bestArtworkURL,
+                lastFmURL: URL(string: track.url)
+            )
+        }
+    }
 
     // MARK: - Private Methods
     private func loadStoredCredentials() {
@@ -249,6 +324,51 @@ final class LastFmService: NSObject {
             throw LastFmError.invalidResponse
         }
     }
+    
+    // MARK: - Generic POST
+    
+    private func post<T: Decodable>(params: [(String, String)]) async throws -> T {
+        guard let url = URL(string: Constants.baseURL) else {
+            throw LastFmError.invalidURL
+        }
+        
+        // Generate signature (required for POST methods)
+        let signature = generateSignature(params: params, secret: Secrets.lastFmApiSecret)
+        
+        // Build form body
+        var allParams = params
+        allParams.append(("api_sig", signature))
+        allParams.append(("format", "json"))
+        
+        let bodyString = allParams
+            .map { "\($0.0)=\($0.1.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.1)" }
+            .joined(separator: "&")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = bodyString.data(using: .utf8)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw LastFmError.requestFailed
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw LastFmError.requestFailed
+        }
+        
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            // Check if it's a Last.fm API error
+            if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
+                throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
+            }
+            throw LastFmError.invalidResponse
+        }
+    }
 }
 
 private struct LastFmAPIError: Decodable {
@@ -293,7 +413,96 @@ struct LastFmUser: Decodable {
     var artistCountInt: Int { Int(artistCount) ?? 0 }
     var trackCountInt: Int { Int(trackCount) ?? 0 }
     var albumCountInt: Int { Int(albumCount) ?? 0 }
+}
+
+// MARK: - Scrobble Response Models
+
+private struct ScrobbleResponse: Decodable {
+    let scrobbles: ScrobblesWrapper
     
+    struct ScrobblesWrapper: Decodable {
+        let attr: ScrobbleAttr
+        
+        enum CodingKeys: String, CodingKey {
+            case attr = "@attr"
+        }
+    }
+    
+    struct ScrobbleAttr: Decodable {
+        let accepted: Int
+        let ignored: Int
+    }
+}
+
+// MARK: - Recent Tracks Response Models
+
+private struct RecentTracksResponse: Decodable {
+    let recenttracks: RecentTracks
+    
+    struct RecentTracks: Decodable {
+        let track: [RecentTrack]
+    }
+    
+    struct RecentTrack: Decodable {
+        let name: String
+        let artist: ArtistInfo
+        let album: AlbumInfo
+        let url: String
+        let date: DateInfo?
+        let image: [ImageInfo]
+        
+        var bestArtworkURL: URL? {
+            // Prefer extralarge, then large, then medium
+            let preferred = image.first { $0.size == "extralarge" }
+                ?? image.first { $0.size == "large" }
+                ?? image.first { $0.size == "medium" }
+            
+            guard let urlString = preferred?.text, !urlString.isEmpty else { return nil }
+            return URL(string: urlString)
+        }
+    }
+    
+    struct ArtistInfo: Decodable {
+        let text: String
+        
+        enum CodingKeys: String, CodingKey {
+            case text = "#text"
+        }
+    }
+    
+    struct AlbumInfo: Decodable {
+        let text: String
+        
+        enum CodingKeys: String, CodingKey {
+            case text = "#text"
+        }
+    }
+    
+    struct DateInfo: Decodable {
+        let uts: String
+    }
+    
+    struct ImageInfo: Decodable {
+        let text: String
+        let size: String
+        
+        enum CodingKeys: String, CodingKey {
+            case text = "#text"
+            case size
+        }
+    }
+}
+
+// MARK: - Public Scrobble Model
+
+/// A scrobble fetched from Last.fm's API
+struct LastFmScrobble {
+    let trackName: String
+    let artistName: String
+    let albumName: String
+    let scrobbledAt: Date
+    let artworkURL: URL?
+    let lastFmURL: URL?
 }
 
 
