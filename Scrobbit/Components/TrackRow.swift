@@ -1,13 +1,25 @@
 import SwiftUI
+import Foundation
 
 struct TrackRow: View {
     let track: Track
     
-    private var formattedDuration: String? {
-        guard let duration = track.duration else { return nil }
-        let minutes = Int(duration) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%d:%02d", minutes, seconds)
+    private var formattedPlayTime: String? {
+        guard let playTime = track.estimatedPlayTime else { return nil }
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(playTime)
+        
+        if timeInterval < 3600 {
+            let minutes = Int(timeInterval / 60)
+            return "\(minutes) mins ago"
+        } else if timeInterval < 86400 {
+            let hours = Int(timeInterval / 3600)
+            return "\(hours) hours ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM dd HH:mm"
+            return formatter.string(from: playTime)
+        }
     }
     
     var body: some View {
@@ -45,9 +57,9 @@ struct TrackRow: View {
             
             Spacer()
             
-            // Duration
-            if let duration = formattedDuration {
-                Text(duration)
+            // Play time
+            if let playTime = formattedPlayTime {
+                Text(playTime)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .monospacedDigit()
@@ -75,7 +87,8 @@ struct TrackRow: View {
             title: "Blinding Lights",
             artistName: "The Weeknd",
             albumTitle: "After Hours",
-            duration: 203
+            duration: 203,
+            estimatedPlayTime: Date().addingTimeInterval(-300)
         ))
         
         Divider()
@@ -85,9 +98,9 @@ struct TrackRow: View {
             title: "Save Your Tears",
             artistName: "The Weeknd",
             albumTitle: "After Hours",
-            duration: 185
+            duration: 185,
+            estimatedPlayTime: Date().addingTimeInterval(-7200)
         ))
     }
     .padding()
 }
-
