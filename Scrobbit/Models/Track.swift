@@ -11,6 +11,7 @@ struct Track: Identifiable, Hashable {
     let url: URL?
     let contentRating: MusicKit.ContentRating?
     let genreNames: [String]?
+    let playCount: Int?
     
     /// Estimated timestamp when this track was played.
     /// Assigned during sync by working backwards from "now" using track durations.
@@ -27,6 +28,7 @@ struct Track: Identifiable, Hashable {
         self.contentRating = song.contentRating
         self.genreNames = song.genreNames
         self.estimatedPlayTime = nil
+        self.playCount = song.playCount
     }
     
     init(
@@ -39,7 +41,8 @@ struct Track: Identifiable, Hashable {
         url: URL? = nil,
         contentRating: MusicKit.ContentRating? = nil,
         genreNames: [String]? = nil,
-        estimatedPlayTime: Date? = nil
+        estimatedPlayTime: Date? = nil,
+        playCount: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -51,5 +54,6 @@ struct Track: Identifiable, Hashable {
         self.contentRating = contentRating
         self.genreNames = genreNames
         self.estimatedPlayTime = estimatedPlayTime
+        self.playCount = playCount
     }
 }

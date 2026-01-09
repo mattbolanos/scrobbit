@@ -270,9 +270,22 @@ final class LastFmService: NSObject {
     private func generateSignature(params: [(String, String)], secret: String) -> String {
         let sortedParams = params.sorted { $0.0 < $1.0 }
         let signatureBase = sortedParams.map { "\($0.0)\($0.1)" }.joined() + secret
+
+        print("[LastFm] Signature base keys: \(sortedParams.map { $0.0 })")
         
         let digest = Insecure.MD5.hash(data: Data(signatureBase.utf8))
         return digest.map { String(format: "%02hhx", $0) }.joined()
+    }
+    
+    /// Percent-encode a string for application/x-www-form-urlencoded
+    private func percentEncode(_ string: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        
+        // Percent encode, then convert %20 to + for form encoding
+        return string
+            .addingPercentEncoding(withAllowedCharacters: allowed)?
+            .replacingOccurrences(of: "%20", with: "+") ?? string
     }
     
     // MARK: - Generic Fetch
@@ -310,17 +323,21 @@ final class LastFmService: NSObject {
             throw LastFmError.requestFailed
         }
         
+        // Check for API errors in response body first (Last.fm returns 200 even for errors sometimes)
+        if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
+            print("[LastFm] API error: code=\(errorResponse.error), message=\(errorResponse.message)")
+            throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
+        }
+        
         guard httpResponse.statusCode == 200 else {
-            throw LastFmError.requestFailed
+            print("[LastFm] HTTP error: status=\(httpResponse.statusCode)")
+            throw LastFmError.httpError(statusCode: httpResponse.statusCode)
         }
         
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            // Check if it's a Last.fm API error
-            if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
-                throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
-            }
+            print("[LastFm] Decode error: \(error)")
             throw LastFmError.invalidResponse
         }
     }
@@ -332,17 +349,20 @@ final class LastFmService: NSObject {
             throw LastFmError.invalidURL
         }
         
-        // Generate signature (required for POST methods)
+        // Generate signature (required for POST methods) - uses raw values
         let signature = generateSignature(params: params, secret: Secrets.lastFmApiSecret)
         
-        // Build form body
+        // Build form body with proper percent encoding
         var allParams = params
         allParams.append(("api_sig", signature))
         allParams.append(("format", "json"))
         
         let bodyString = allParams
-            .map { "\($0.0)=\($0.1.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.1)" }
+            .map { "\($0.0)=\(percentEncode($0.1))" }
             .joined(separator: "&")
+        
+        print("[LastFm] POST signature: \(signature)")
+        print("[LastFm] POST params count: \(allParams.count)")
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -355,17 +375,21 @@ final class LastFmService: NSObject {
             throw LastFmError.requestFailed
         }
         
+        // Check for API errors in response body first (Last.fm returns 200 even for errors sometimes)
+        if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
+            print("[LastFm] API error (POST): code=\(errorResponse.error), message=\(errorResponse.message)")
+            throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
+        }
+        
         guard httpResponse.statusCode == 200 else {
-            throw LastFmError.requestFailed
+            print("[LastFm] HTTP error (POST): status=\(httpResponse.statusCode)")
+            throw LastFmError.httpError(statusCode: httpResponse.statusCode)
         }
         
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            // Check if it's a Last.fm API error
-            if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
-                throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
-            }
+            print("[LastFm] Decode error (POST): \(error)")
             throw LastFmError.invalidResponse
         }
     }
@@ -534,11 +558,12 @@ enum LastFmError: LocalizedError {
     case noToken
     case authFailed(String)
     case requestFailed
+    case httpError(statusCode: Int)
     case invalidResponse
     case apiError(code: Int, message: String)
     case keychainError
     case notAuthenticated
-    
+
     var errorDescription: String? {
         switch self {
         case .invalidURL:
@@ -551,6 +576,8 @@ enum LastFmError: LocalizedError {
             return "Authentication failed: \(message)"
         case .requestFailed:
             return "Request failed"
+        case .httpError(let statusCode):
+            return "HTTP error: \(statusCode)"
         case .invalidResponse:
             return "Invalid response from Last.fm"
         case .apiError(_, let message):

@@ -33,6 +33,7 @@
 		8379578B2EFC5C9D007BD177 /* ScrobbitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScrobbitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		837957952EFC5C9D007BD177 /* ScrobbitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScrobbitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		837BF29C2F077D7F0062EB89 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		83B9DD392F11B66C0061F775 /* Scrobbit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Scrobbit.entitlements; path = Scrobbit/Scrobbit.entitlements; sourceTree = "<group>"; };
 		83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -95,6 +96,7 @@
 		837957732EFC5C9C007BD177 = {
 			isa = PBXGroup;
 			children = (
+				83B9DD392F11B66C0061F775 /* Scrobbit.entitlements */,
 				83EB03B12F00EE8C00CF409A /* Launch Screen.storyboard */,
 				8379577E2EFC5C9C007BD177 /* Scrobbit */,
 				8379578E2EFC5C9D007BD177 /* ScrobbitTests */,

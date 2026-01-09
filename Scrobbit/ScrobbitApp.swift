@@ -32,6 +32,11 @@ struct ScrobbitApp: App {
                             musicKitService: appleMusicService,
                             modelContext: modelContainer.mainContext
                         )
+                        
+                        // Auto-sync on launch if both services are connected
+                        if lastFmService.isAuthenticated && appleMusicService.isAuthorized {
+                            await scrobbleService?.performSync()
+                        }
                     }
                 }
         }

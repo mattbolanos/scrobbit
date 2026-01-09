@@ -1,13 +1,21 @@
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
+    @Environment(\.scrobbleService) private var scrobbleService
+    
+    @Query(sort: \ScrobbledTrack.scrobbledAt, order: .reverse)
+    private var recentScrobbles: [ScrobbledTrack]
     
     @State private var isLoadingUserInfo = false
-    @State private var isLoadingRecentlyPlayed = false
-    @State private var recentlyPlayedTracks: [Track] = []
     @State private var showConnectSheet = false
+    
+    /// Limit recent scrobbles shown on home view
+    private var displayedScrobbles: [ScrobbledTrack] {
+        Array(recentScrobbles.prefix(10))
+    }
     
     private var connectedCount: Int {
         var count = 0
@@ -34,10 +42,14 @@ struct HomeView: View {
                         authenticatedContent
                     }
                     
-                    if appleMusicService.isAuthorized {
+                    if isFullyConnected {
+                        scrobbleButton
+                    }
+                    
+                    if lastFmService.isAuthenticated {
                         RecentlyPlayedSection(
-                            tracks: recentlyPlayedTracks,
-                            isLoading: isLoadingRecentlyPlayed
+                            scrobbles: displayedScrobbles,
+                            isLoading: scrobbleService?.isSyncing ?? false
                         )
                     }
                 }
@@ -46,17 +58,9 @@ struct HomeView: View {
             .navigationTitle("Scrobbit")
             .task {
                 await loadUserInfoIfNeeded()
-                await fetchRecentlyPlayedIfNeeded()
             }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet()
-            }
-            .onChange(of: appleMusicService.isAuthorized) { oldValue, newValue in
-                if !oldValue && newValue {
-                    Task {
-                        await fetchRecentlyPlayedIfNeeded()
-                    }
-                }
             }
         }
     }
@@ -72,6 +76,36 @@ struct HomeView: View {
         }
     }
     
+    // MARK: - Scrobble Button
+    
+    private var scrobbleButton: some View {
+        Button {
+            Task {
+                await scrobbleService?.performSync()
+            }
+        } label: {
+            HStack(spacing: Theme.Spacing.sm) {
+                if scrobbleService?.isSyncing == true {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                }
+                Text(scrobbleService?.isSyncing == true ? "Scrobbling..." : "Scrobble Now")
+            }
+            .font(.headline)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                    .fill(Theme.Colors.accent)
+            )
+        }
+        .disabled(scrobbleService?.isSyncing == true)
+    }
+    
     // MARK: - Load User Info
     
     private func loadUserInfoIfNeeded() async {
@@ -83,22 +117,6 @@ struct HomeView: View {
         do {
             try await lastFmService.fetchUserInfo()
         } catch {
-            print("Failed to load user info: \(error)")
-        }
-    }
-    
-    // MARK: - Fetch Recently Played
-    
-    private func fetchRecentlyPlayedIfNeeded() async {
-        guard appleMusicService.isAuthorized else { return }
-        
-        isLoadingRecentlyPlayed = true
-        defer { isLoadingRecentlyPlayed = false }
-        
-        do {
-            recentlyPlayedTracks = try await appleMusicService.fetchRecentlyPlayed()
-        } catch {
-            print("Failed to fetch recently played: \(error)")
         }
     }
 }
@@ -107,4 +125,5 @@ struct HomeView: View {
     HomeView()
         .environment(LastFmService())
         .environment(MusicKitService())
+        .modelContainer(for: ScrobbledTrack.self, inMemory: true)
 }

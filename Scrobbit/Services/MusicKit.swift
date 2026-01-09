@@ -72,14 +72,17 @@ final class MusicKitService {
             throw MusicKitError.notAuthorized
         }
         
-        let request = MusicRecentlyPlayedRequest<MusicKit.Track>()
+        let request = MusicRecentlyPlayedRequest<Song>()
         let response = try await request.response()
-
-        return response.items.compactMap { item -> Track? in
-            guard case .song(let song) = item else { return nil }
+        return response.items.compactMap { song -> Track? in
+            // Filter out songs without valid identifiers (local files, etc.)
+            guard !song.id.rawValue.isEmpty else {
+                return nil
+            }
+            
+            
             return Track(from: song)
         }
-
     }
 }
 

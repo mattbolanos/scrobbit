@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// Local cache of recently scrobbled tracks for de-duplication.
-/// Uses Apple Music track IDs for precise matching.
+/// Uses Apple Music track IDs and play counts for precise matching.
 @Model
 final class ScrobbleCache {
     /// Apple Music track ID - stable and unique
@@ -14,13 +14,18 @@ final class ScrobbleCache {
     /// When this entry was created (for pruning old entries)
     var createdAt: Date
     
+    /// The play count from MusicKit when we last scrobbled this track.
+    /// Used to detect legitimate replays (playCount increased = new play).
+    var lastKnownPlayCount: Int?
+    
     /// Unique key for de-duplication: "{appleMusicID}-{timestamp_unix}"
     @Attribute(.unique) var cacheKey: String
     
-    init(appleMusicID: String, estimatedTimestamp: Date) {
+    init(appleMusicID: String, estimatedTimestamp: Date, playCount: Int? = nil) {
         self.appleMusicID = appleMusicID
         self.estimatedTimestamp = estimatedTimestamp
         self.createdAt = Date()
+        self.lastKnownPlayCount = playCount
         self.cacheKey = ScrobbleCache.generateKey(
             appleMusicID: appleMusicID,
             timestamp: estimatedTimestamp
