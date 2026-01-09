@@ -3,9 +3,12 @@ import SwiftData
 
 @main
 struct ScrobbitApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+    
     @State private var lastFmService = LastFmService()
     @State private var appleMusicService = MusicKitService()
     @State private var scrobbleService: ScrobbleService?
+    @State private var backgroundTaskManager: BackgroundTaskManager?
     
     private let modelContainer: ModelContainer
     
@@ -32,11 +35,22 @@ struct ScrobbitApp: App {
                             musicKitService: appleMusicService,
                             modelContext: modelContainer.mainContext
                         )
-                        
-                        // Auto-sync on launch if both services are connected
-                        if lastFmService.isAuthenticated && appleMusicService.isAuthorized {
-                            await scrobbleService?.performSync()
-                        }
+                    }
+                    
+                    // Initialize and register BackgroundTaskManager
+                    if backgroundTaskManager == nil {
+                        backgroundTaskManager = BackgroundTaskManager(
+                            lastFmService: lastFmService,
+                            musicKitService: appleMusicService,
+                            scrobbleServiceProvider: { [scrobbleService] in scrobbleService }
+                        )
+                        backgroundTaskManager?.registerBackgroundTask()
+                    }
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .background {
+                        // Schedule background refresh when app goes to background
+                        backgroundTaskManager?.scheduleBackgroundRefresh()
                     }
                 }
         }
