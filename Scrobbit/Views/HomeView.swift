@@ -1,21 +1,14 @@
 import SwiftUI
-import SwiftData
 
 struct HomeView: View {
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
     @Environment(\.scrobbleService) private var scrobbleService
     
-    @Query(sort: \ScrobbledTrack.scrobbledAt, order: .reverse)
-    private var recentScrobbles: [ScrobbledTrack]
-    
+    @State private var recentScrobbles: [LastFmScrobble] = []
+    @State private var isLoadingScrobbles = false
     @State private var isLoadingUserInfo = false
     @State private var showConnectSheet = false
-    
-    /// Limit recent scrobbles shown on home view
-    private var displayedScrobbles: [ScrobbledTrack] {
-        Array(recentScrobbles.prefix(10))
-    }
     
     private var connectedCount: Int {
         var count = 0
@@ -48,8 +41,8 @@ struct HomeView: View {
                     
                     if lastFmService.isAuthenticated {
                         RecentlyPlayedSection(
-                            scrobbles: displayedScrobbles,
-                            isLoading: scrobbleService?.isSyncing ?? false
+                            scrobbles: Array(recentScrobbles.prefix(10)),
+                            isLoading: isLoadingScrobbles
                         )
                     }
                 }
@@ -58,6 +51,10 @@ struct HomeView: View {
             .navigationTitle("Scrobbit")
             .task {
                 await loadUserInfoIfNeeded()
+                await loadRecentScrobbles()
+            }
+            .refreshable {
+                await loadRecentScrobbles()
             }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet()
@@ -82,6 +79,7 @@ struct HomeView: View {
         Button {
             Task {
                 await scrobbleService?.performSync()
+                await loadRecentScrobbles()
             }
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
@@ -119,11 +117,25 @@ struct HomeView: View {
         } catch {
         }
     }
+    
+    // MARK: - Load Recent Scrobbles
+    
+    private func loadRecentScrobbles() async {
+        guard lastFmService.isAuthenticated else { return }
+        
+        isLoadingScrobbles = true
+        defer { isLoadingScrobbles = false }
+        
+        do {
+            recentScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 50)
+        } catch {
+            // Silently fail - empty state will be shown
+        }
+    }
 }
 
 #Preview {
     HomeView()
         .environment(LastFmService())
         .environment(MusicKitService())
-        .modelContainer(for: ScrobbledTrack.self, inMemory: true)
 }

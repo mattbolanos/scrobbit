@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct RecentlyPlayedSection: View {
-    let scrobbles: [ScrobbledTrack]
+    let scrobbles: [LastFmScrobble]
     let isLoading: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Text("Recently Scrobbled")
+            Text("Recent Scrobbles")
                 .font(.title2.weight(.bold))
             
             if isLoading && scrobbles.isEmpty {
@@ -84,11 +84,11 @@ struct RecentlyPlayedSection: View {
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
             
-            Text("No scrobbles yet")
+            Text("No Last.fm scrobbles found")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
-            Text("Tap Scrobble Now to sync your recent plays")
+            Text("Your recently played tracks will appear here")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -104,7 +104,7 @@ struct RecentlyPlayedSection: View {
 // MARK: - Recent Scrobble Row
 
 struct RecentScrobbleRow: View {
-    let scrobble: ScrobbledTrack
+    let scrobble: LastFmScrobble
     
     private var relativeTime: String {
         let formatter = RelativeDateTimeFormatter()
@@ -169,7 +169,16 @@ struct RecentScrobbleRow: View {
 
 #Preview {
     RecentlyPlayedSection(
-        scrobbles: [],
+        scrobbles: [
+            LastFmScrobble(
+                trackName: "Sample Track",
+                artistName: "Sample Artist",
+                albumName: "Sample Album",
+                scrobbledAt: Date(),
+                artworkURL: nil,
+                lastFmURL: nil
+            )
+        ],
         isLoading: false
     )
     .padding()

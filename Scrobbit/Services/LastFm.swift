@@ -520,13 +520,18 @@ private struct RecentTracksResponse: Decodable {
 // MARK: - Public Scrobble Model
 
 /// A scrobble fetched from Last.fm's API
-struct LastFmScrobble {
+struct LastFmScrobble: Identifiable {
     let trackName: String
     let artistName: String
     let albumName: String
     let scrobbledAt: Date
     let artworkURL: URL?
     let lastFmURL: URL?
+    
+    var id: String {
+        let timestamp = Int(scrobbledAt.timeIntervalSince1970)
+        return "\(artistName)-\(trackName)-\(timestamp)"
+    }
 }
 
 
