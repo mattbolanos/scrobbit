@@ -16,7 +16,13 @@ struct RecentlyPlayedSection: View {
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(scrobbles.enumerated()), id: \.element.id) { index, scrobble in
-                        RecentScrobbleRow(scrobble: scrobble)
+                        TrackRow(
+                            songName: scrobble.trackName,
+                            artistName: scrobble.artistName,
+                            albumName: scrobble.albumName,
+                            artworkURL: scrobble.artworkURL,
+                            playedAt: scrobble.scrobbledAt
+                        )
                             .padding(.horizontal, Theme.Spacing.md)
                             .padding(.vertical, Theme.Spacing.sm)
                             .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
@@ -101,71 +107,6 @@ struct RecentlyPlayedSection: View {
     }
 }
 
-// MARK: - Recent Scrobble Row
-
-struct RecentScrobbleRow: View {
-    let scrobble: LastFmScrobble
-    
-    private var relativeTime: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: scrobble.scrobbledAt, relativeTo: Date())
-    }
-    
-    var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
-            // Album artwork
-            AsyncImage(url: scrobble.artworkURL) { phase in
-                switch phase {
-                case .empty:
-                    artworkPlaceholder
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                case .failure:
-                    artworkPlaceholder
-                @unknown default:
-                    artworkPlaceholder
-                }
-            }
-            .frame(width: Theme.Size.artwork, height: Theme.Size.artwork)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-            
-            // Track info
-            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                Text(scrobble.trackName)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                
-                Text("\(scrobble.artistName) · \(scrobble.albumName)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Relative time
-            Text(relativeTime)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, Theme.Spacing.xs)
-    }
-    
-    private var artworkPlaceholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
-                .fill(Theme.Colors.accent.opacity(Theme.Opacity.subtle))
-            
-            Image(systemName: "music.note")
-                .font(.title3)
-                .foregroundStyle(Theme.Colors.accent.opacity(Theme.Opacity.border))
-        }
-    }
-}
 
 #Preview {
     RecentlyPlayedSection(

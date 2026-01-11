@@ -26,7 +26,7 @@ final class MusicKitService {
             case .restricted:
                 return "Access restricted"
             case .authorized:
-                return ""
+                return "Connected"
             @unknown default:
                 return "Unknown status"
         }
@@ -96,4 +96,3 @@ enum MusicKitError: LocalizedError {
         }
     }
 }
-

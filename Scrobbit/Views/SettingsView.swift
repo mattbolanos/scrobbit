@@ -64,12 +64,12 @@ struct SettingsView: View {
                     .disabled(appleMusicService.isAuthorizing)
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .contentMargins(.top, Theme.Spacing.md)
         }
     }
-    
-
 }
 
 #Preview {

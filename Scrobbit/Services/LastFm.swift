@@ -113,8 +113,8 @@ final class LastFmService: NSObject {
             params.append(("track[\(index)]", track.title))
             params.append(("album[\(index)]", track.albumTitle))
             
-            // Use estimated play time or current time
-            let timestamp = track.estimatedPlayTime ?? Date()
+            // Use scrobble time or current time
+            let timestamp = track.scrobbledAt ?? Date()
             params.append(("timestamp[\(index)]", String(Int(timestamp.timeIntervalSince1970))))
             
             // Optional: duration in seconds
@@ -270,8 +270,6 @@ final class LastFmService: NSObject {
     private func generateSignature(params: [(String, String)], secret: String) -> String {
         let sortedParams = params.sorted { $0.0 < $1.0 }
         let signatureBase = sortedParams.map { "\($0.0)\($0.1)" }.joined() + secret
-
-        print("[LastFm] Signature base keys: \(sortedParams.map { $0.0 })")
         
         let digest = Insecure.MD5.hash(data: Data(signatureBase.utf8))
         return digest.map { String(format: "%02hhx", $0) }.joined()
@@ -325,19 +323,16 @@ final class LastFmService: NSObject {
         
         // Check for API errors in response body first (Last.fm returns 200 even for errors sometimes)
         if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
-            print("[LastFm] API error: code=\(errorResponse.error), message=\(errorResponse.message)")
             throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
         }
         
         guard httpResponse.statusCode == 200 else {
-            print("[LastFm] HTTP error: status=\(httpResponse.statusCode)")
             throw LastFmError.httpError(statusCode: httpResponse.statusCode)
         }
         
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            print("[LastFm] Decode error: \(error)")
             throw LastFmError.invalidResponse
         }
     }
@@ -361,9 +356,6 @@ final class LastFmService: NSObject {
             .map { "\($0.0)=\(percentEncode($0.1))" }
             .joined(separator: "&")
         
-        print("[LastFm] POST signature: \(signature)")
-        print("[LastFm] POST params count: \(allParams.count)")
-        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -377,19 +369,16 @@ final class LastFmService: NSObject {
         
         // Check for API errors in response body first (Last.fm returns 200 even for errors sometimes)
         if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
-            print("[LastFm] API error (POST): code=\(errorResponse.error), message=\(errorResponse.message)")
             throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
         }
         
         guard httpResponse.statusCode == 200 else {
-            print("[LastFm] HTTP error (POST): status=\(httpResponse.statusCode)")
             throw LastFmError.httpError(statusCode: httpResponse.statusCode)
         }
         
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            print("[LastFm] Decode error (POST): \(error)")
             throw LastFmError.invalidResponse
         }
     }

@@ -2,10 +2,14 @@ import SwiftUI
 import Foundation
 
 struct TrackRow: View {
-    let track: Track
+    let songName: String
+    let artistName: String
+    let albumName: String
+    let artworkURL: URL?
+    let playedAt: Date?
     
     private var formattedPlayTime: String? {
-        guard let playTime = track.estimatedPlayTime else { return nil }
+        guard let playTime = playedAt else { return nil }
         let now = Date()
         let timeInterval = now.timeIntervalSince(playTime)
         
@@ -25,7 +29,7 @@ struct TrackRow: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
             // Album artwork
-            AsyncImage(url: track.artworkURL) { phase in
+            AsyncImage(url: artworkURL) { phase in
                 switch phase {
                 case .empty:
                     artworkPlaceholder
@@ -44,12 +48,12 @@ struct TrackRow: View {
             
             // Track info
             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                Text(track.title)
+                Text(songName)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 
-                Text("\(track.artistName) · \(track.albumTitle)")
+                Text("\(artistName) · \(albumName)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -82,25 +86,23 @@ struct TrackRow: View {
 
 #Preview {
     VStack(spacing: 0) {
-        TrackRow(track: Track(
-            id: "1",
-            title: "Blinding Lights",
+        TrackRow(
+            songName: "Blinding Lights",
             artistName: "The Weeknd",
-            albumTitle: "After Hours",
-            duration: 203,
-            estimatedPlayTime: Date().addingTimeInterval(-300)
-        ))
+            albumName: "After Hours",
+            artworkURL: nil,
+            playedAt: Date().addingTimeInterval(-300)
+        )
         
         Divider()
         
-        TrackRow(track: Track(
-            id: "2",
-            title: "Save Your Tears",
+        TrackRow(
+            songName: "Save Your Tears",
             artistName: "The Weeknd",
-            albumTitle: "After Hours",
-            duration: 185,
-            estimatedPlayTime: Date().addingTimeInterval(-7200)
-        ))
+            albumName: "After Hours",
+            artworkURL: nil,
+            playedAt: Date().addingTimeInterval(-7200)
+        )
     }
     .padding()
 }

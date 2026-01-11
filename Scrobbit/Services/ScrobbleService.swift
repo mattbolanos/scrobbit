@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 /// Orchestrates the scrobbling flow between Apple Music and Last.fm.
 /// Handles timestamp estimation and de-duplication via local cache.
@@ -37,11 +38,9 @@ final class ScrobbleService {
     /// This is the main entry point for background refresh and manual sync.
     func performSync() async {
         guard !isSyncing else {
-            print("[ScrobbleService] Sync already in progress")
             return
         }
         guard lastFmService.isAuthenticated && musicKitService.isAuthorized else {
-            print("[ScrobbleService] Not authenticated - Last.fm: \(lastFmService.isAuthenticated), Apple Music: \(musicKitService.isAuthorized)")
             return
         }
         
@@ -55,16 +54,12 @@ final class ScrobbleService {
         
         do {
             // Step 1: Scrobble new tracks from Apple Music
-            print("[ScrobbleService] Starting scrobble of new tracks...")
             try await scrobbleNewTracks()
             
             // Step 2: Refresh local history cache from Last.fm
-            print("[ScrobbleService] Refreshing history cache from Last.fm...")
             try await refreshHistoryCache()
             
-            print("[ScrobbleService] Sync completed successfully")
         } catch {
-            print("[ScrobbleService] Sync failed: \(error)")
             lastSyncError = error
         }
     }
@@ -72,13 +67,10 @@ final class ScrobbleService {
     /// Scrobbles tracks from Apple Music that haven't been scrobbled yet.
     private func scrobbleNewTracks() async throws {
         // 1. Fetch recently played from Apple Music
-        print("[ScrobbleService] Fetching recently played from Apple Music...")
         let recentTracks: [Track]
         do {
             recentTracks = try await musicKitService.fetchRecentlyPlayed()
-            print("[ScrobbleService] Fetched \(recentTracks.count) tracks from Apple Music")
         } catch {
-            print("[ScrobbleService] Failed to fetch from Apple Music: \(error)")
             throw error
         }
         
@@ -87,21 +79,16 @@ final class ScrobbleService {
         
         // 3. Filter out tracks already in local cache
         let newTracks = try filterAgainstCache(tracksWithTimestamps)
-        print("[ScrobbleService] \(newTracks.count) new tracks to scrobble (after de-duplication)")
         
         guard !newTracks.isEmpty else {
-            print("[ScrobbleService] No new tracks to scrobble")
             return
         }
         
         // 4. Scrobble to Last.fm
-        print("[ScrobbleService] Scrobbling \(newTracks.count) tracks to Last.fm...")
         let accepted: Int
         do {
             accepted = try await lastFmService.scrobble(newTracks)
-            print("[ScrobbleService] Last.fm accepted \(accepted) scrobbles")
         } catch {
-            print("[ScrobbleService] Failed to scrobble to Last.fm: \(error)")
             throw error
         }
         
@@ -123,12 +110,11 @@ final class ScrobbleService {
             let duration = track.duration ?? Self.defaultDuration
             let startTime = currentTime.addingTimeInterval(-duration)
             
-            var updatedTrack = track
-            updatedTrack.estimatedPlayTime = startTime
+            track.scrobbledAt = startTime
             
             // Next track ended when this one started
             currentTime = startTime
-            return updatedTrack
+            return track
         }
     }
     
@@ -145,7 +131,7 @@ final class ScrobbleService {
         let windowStart = Date().addingTimeInterval(-Self.deduplicationWindow)
         
         return try tracks.filter { track in
-            guard track.estimatedPlayTime != nil else { return false }
+            guard track.scrobbledAt != nil else { return false }
             
             // Check if we've scrobbled this track ID within the dedup window
             let trackID = track.id
@@ -166,7 +152,6 @@ final class ScrobbleService {
             if let currentPlayCount = track.playCount,
                let cachedPlayCount = cachedEntry.lastKnownPlayCount,
                currentPlayCount > cachedPlayCount {
-                print("[ScrobbleService] Track '\(track.title)' has higher playCount (\(currentPlayCount) > \(cachedPlayCount)), allowing re-scrobble")
                 return true
             }
             
@@ -180,7 +165,7 @@ final class ScrobbleService {
         let windowStart = Date().addingTimeInterval(-Self.deduplicationWindow)
         
         for track in tracks {
-            guard let timestamp = track.estimatedPlayTime else { continue }
+            guard let timestamp = track.scrobbledAt else { continue }
             
             // Check if there's an existing cache entry to update (for playCount tracking)
             let trackID = track.id
@@ -233,13 +218,10 @@ final class ScrobbleService {
     
     /// Fetches recent scrobbles from Last.fm and updates the local history cache.
     func refreshHistoryCache() async throws {
-        print("[ScrobbleService] Fetching recent scrobbles from Last.fm...")
         let scrobbles: [LastFmScrobble]
         do {
             scrobbles = try await lastFmService.fetchRecentScrobbles(limit: 50)
-            print("[ScrobbleService] Fetched \(scrobbles.count) scrobbles from Last.fm")
         } catch {
-            print("[ScrobbleService] Failed to fetch scrobbles from Last.fm: \(error)")
             throw error
         }
         
@@ -248,14 +230,14 @@ final class ScrobbleService {
         
         // Upsert into SwiftData
         for scrobble in scrobbles {
-            let scrobbleID = ScrobbledTrack.generateID(
+            let scrobbleID = Track.generateScrobbleID(
                 artistName: scrobble.artistName,
                 trackName: scrobble.trackName,
                 timestamp: scrobble.scrobbledAt
             )
             
             // Check if already exists
-            let descriptor = FetchDescriptor<ScrobbledTrack>(
+            let descriptor = FetchDescriptor<Track>(
                 predicate: #Predicate { $0.scrobbleID == scrobbleID }
             )
             
@@ -263,13 +245,14 @@ final class ScrobbleService {
             
             if existing.isEmpty {
                 // Insert new record
-                let track = ScrobbledTrack(
-                    trackName: scrobble.trackName,
+                let track = Track(
+                    title: scrobble.trackName,
                     artistName: scrobble.artistName,
-                    albumName: scrobble.albumName,
-                    scrobbledAt: scrobble.scrobbledAt,
+                    albumTitle: scrobble.albumName,
                     artworkURL: scrobble.artworkURL,
-                    lastFmURL: scrobble.lastFmURL
+                    scrobbledAt: scrobble.scrobbledAt,
+                    lastFmURL: scrobble.lastFmURL,
+                    scrobbleID: scrobbleID
                 )
                 modelContext.insert(track)
                 insertedCount += 1
@@ -281,13 +264,9 @@ final class ScrobbleService {
             }
         }
         
-        print("[ScrobbleService] Inserted \(insertedCount) new, updated \(updatedCount) existing tracks")
-        
         do {
             try modelContext.save()
-            print("[ScrobbleService] Successfully saved to SwiftData")
         } catch {
-            print("[ScrobbleService] Failed to save to SwiftData: \(error)")
             throw error
         }
     }
@@ -300,7 +279,19 @@ final class ScrobbleService {
     
     /// Clears the local history cache (Last.fm display cache).
     func clearHistoryCache() throws {
-        try modelContext.delete(model: ScrobbledTrack.self)
+        try modelContext.delete(model: Track.self)
         try modelContext.save()
+    }
+}
+
+
+struct ScrobbleServiceKey: EnvironmentKey {
+    static let defaultValue: ScrobbleService? = nil
+}
+
+extension EnvironmentValues {
+    var scrobbleService: ScrobbleService? {
+        get { self[ScrobbleServiceKey.self] }
+        set { self[ScrobbleServiceKey.self] = newValue }
     }
 }

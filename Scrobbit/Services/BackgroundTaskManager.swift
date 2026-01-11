@@ -6,7 +6,7 @@ import Foundation
 final class BackgroundTaskManager {
     
     /// Task identifier registered in Info.plist
-    static let scrobbleTaskIdentifier = "com.scrobbit.refresh"
+    nonisolated static let scrobbleTaskIdentifier = "com.scrobbit.refresh"
     
     /// Interval between background refreshes (30 minutes)
     private static let refreshInterval: TimeInterval = 30 * 60
@@ -36,7 +36,6 @@ final class BackgroundTaskManager {
                 await self.handleBackgroundTask(task as! BGAppRefreshTask)
             }
         }
-        print("[BackgroundTaskManager] Registered background task: \(Self.scrobbleTaskIdentifier)")
     }
     
     /// Schedules the next background refresh.
@@ -47,7 +46,6 @@ final class BackgroundTaskManager {
         
         do {
             try BGTaskScheduler.shared.submit(request)
-            print("[BackgroundTaskManager] Scheduled background refresh for \(Self.refreshInterval / 60) minutes from now")
         } catch {
             print("[BackgroundTaskManager] Failed to schedule background refresh: \(error)")
         }

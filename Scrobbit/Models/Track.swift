@@ -1,48 +1,65 @@
 import Foundation
 import MusicKit
+import SwiftData
 
-struct Track: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let artistName: String
-    let albumTitle: String
-    let duration: TimeInterval?
-    let artworkURL: URL?
-    let url: URL?
-    let contentRating: MusicKit.ContentRating?
-    let genreNames: [String]?
-    let playCount: Int?
+/// Unified track model used for both MusicKit tracks and cached Last.fm scrobbles.
+/// When used transiently (e.g., from MusicKit), instances don't need to be persisted.
+/// When used for history display, instances are persisted to SwiftData.
+@Model
+final class Track {
+    var id: String
+    var title: String
+    var artistName: String
+    var albumTitle: String
+    var duration: TimeInterval?
+    var artworkURL: URL?
+    var url: URL?
+    var contentRating: ContentRating?
+    var genreNames: [String]?
+    var playCount: Int?
     
-    /// Estimated timestamp when this track was played.
-    /// Assigned during sync by working backwards from "now" using track durations.
-    var estimatedPlayTime: Date?
+    /// Timestamp when this track was played/scrobbled.
+    /// For MusicKit tracks, this is estimated by working backwards from "now".
+    /// For Last.fm scrobbles, this is the actual scrobble timestamp.
+    var scrobbledAt: Date?
     
-    init(from song: Song) {
-        self.id = song.id.rawValue
-        self.title = song.title
-        self.artistName = song.artistName
-        self.albumTitle = song.albumTitle ?? ""
-        self.duration = song.duration
-        self.artworkURL = song.artwork?.url(width: 300, height: 300)
-        self.url = song.url
-        self.contentRating = song.contentRating
-        self.genreNames = song.genreNames
-        self.estimatedPlayTime = nil
-        self.playCount = song.playCount
+    /// URL to the track's Last.fm page (only set for cached scrobbles).
+    var lastFmURL: URL?
+    
+    /// Unique constraint to prevent duplicate scrobbles in history.
+    /// Format: "{artistName}-{trackName}-{timestamp}"
+    @Attribute(.unique) var scrobbleID: String?
+    
+    /// Creates a Track from a MusicKit Song.
+    convenience init(from song: Song) {
+        self.init(
+            id: song.id.rawValue,
+            title: song.title,
+            artistName: song.artistName,
+            albumTitle: song.albumTitle ?? "",
+            duration: song.duration,
+            artworkURL: song.artwork?.url(width: 300, height: 300),
+            url: song.url,
+            contentRating: song.contentRating,
+            genreNames: song.genreNames,
+            playCount: song.playCount
+        )
     }
     
     init(
-        id: String,
+        id: String = UUID().uuidString,
         title: String,
         artistName: String,
         albumTitle: String,
         duration: TimeInterval? = nil,
         artworkURL: URL? = nil,
         url: URL? = nil,
-        contentRating: MusicKit.ContentRating? = nil,
+        contentRating: ContentRating? = nil,
         genreNames: [String]? = nil,
-        estimatedPlayTime: Date? = nil,
-        playCount: Int? = nil
+        scrobbledAt: Date? = nil,
+        playCount: Int? = nil,
+        lastFmURL: URL? = nil,
+        scrobbleID: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -53,7 +70,15 @@ struct Track: Identifiable, Hashable {
         self.url = url
         self.contentRating = contentRating
         self.genreNames = genreNames
-        self.estimatedPlayTime = estimatedPlayTime
+        self.scrobbledAt = scrobbledAt
         self.playCount = playCount
+        self.lastFmURL = lastFmURL
+        self.scrobbleID = scrobbleID
+    }
+    
+    /// Generates a unique ID for de-duplication of scrobbles.
+    static func generateScrobbleID(artistName: String, trackName: String, timestamp: Date) -> String {
+        let timestampInt = Int(timestamp.timeIntervalSince1970)
+        return "\(artistName)-\(trackName)-\(timestampInt)"
     }
 }

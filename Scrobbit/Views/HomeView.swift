@@ -32,7 +32,7 @@ struct HomeView: View {
                     }
                     
                     if lastFmService.isAuthenticated {
-                        authenticatedContent
+                        lastFmStatsGrid
                     }
                     
                     if isFullyConnected {
@@ -41,7 +41,7 @@ struct HomeView: View {
                     
                     if lastFmService.isAuthenticated {
                         RecentlyPlayedSection(
-                            scrobbles: Array(recentScrobbles.prefix(10)),
+                            scrobbles: recentScrobbles,
                             isLoading: isLoadingScrobbles
                         )
                     }
@@ -62,10 +62,10 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Authenticated Content
+
     
     @ViewBuilder
-    private var authenticatedContent: some View {
+    private var lastFmStatsGrid: some View {
         if let userInfo = lastFmService.userInfo {
             StatsGrid(userInfo: userInfo)
         } else if isLoadingUserInfo {
@@ -127,7 +127,7 @@ struct HomeView: View {
         defer { isLoadingScrobbles = false }
         
         do {
-            recentScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 50)
+            recentScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 30)
         } catch {
             // Silently fail - empty state will be shown
         }
