@@ -21,6 +21,7 @@ struct HistoryView: View {
                 .padding()
             }
             .navigationTitle("History")
+            .contentMargins(.top, -Theme.Spacing.md)
             .refreshable {
                 await scrobbleService?.performSync()
             }
@@ -51,7 +52,7 @@ struct HistoryView: View {
                     artworkURL: scrobble.artworkURL,
                     playedAt: scrobble.scrobbledAt
                 )
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, Theme.Spacing.xxs)
                     .padding(.vertical, Theme.Spacing.sm)
                     .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
                     .padding(.bottom, index == scrobbles.count - 1 ? -Theme.Spacing.sm : 0)
