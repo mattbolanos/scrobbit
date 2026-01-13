@@ -52,11 +52,6 @@ struct ConnectAccountsSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
         .presentationBackground(.ultraThickMaterial)
-        .onChange(of: isFullyConnected) { _, newValue in
-            if newValue {
-                dismiss()
-            }
-        }
     }
     
     // MARK: - Last.fm Row
@@ -65,6 +60,9 @@ struct ConnectAccountsSheet: View {
         Button {
             Task {
                 try? await lastFmService.authenticate()
+                if lastFmService.isAuthenticated && appleMusicService.isAuthorized {
+                    dismiss()
+                }
             }
         } label: {
             ServiceRow(
@@ -91,6 +89,9 @@ struct ConnectAccountsSheet: View {
         Button {
             Task {
                 await appleMusicService.requestAuthorization()
+                if lastFmService.isAuthenticated && appleMusicService.isAuthorized {
+                    dismiss()
+                }
             }
         } label: {
             ServiceRow(

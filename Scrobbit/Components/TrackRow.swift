@@ -6,7 +6,24 @@ struct TrackRow: View {
     let artistName: String
     let albumName: String
     let artworkURL: URL?
+    let artworkImage: UIImage?
     let playedAt: Date?
+    
+    init(
+        songName: String,
+        artistName: String,
+        albumName: String,
+        artworkURL: URL? = nil,
+        artworkImage: UIImage? = nil,
+        playedAt: Date?
+    ) {
+        self.songName = songName
+        self.artistName = artistName
+        self.albumName = albumName
+        self.artworkURL = artworkURL
+        self.artworkImage = artworkImage
+        self.playedAt = playedAt
+    }
     
     private var formattedPlayTime: String? {
         guard let playTime = playedAt else { return nil }
@@ -28,23 +45,10 @@ struct TrackRow: View {
     
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            // Album artwork
-            AsyncImage(url: artworkURL) { phase in
-                switch phase {
-                case .empty:
-                    artworkPlaceholder
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                case .failure:
-                    artworkPlaceholder
-                @unknown default:
-                    artworkPlaceholder
-                }
-            }
-            .frame(width: Theme.Size.artwork, height: Theme.Size.artwork)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+            // Album artwork - prefer local image, fallback to URL
+            artworkView
+                .frame(width: Theme.Size.artwork, height: Theme.Size.artwork)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             
             // Track info
             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
@@ -70,6 +74,34 @@ struct TrackRow: View {
             }
         }
         .padding(.vertical, Theme.Spacing.xs)
+    }
+    
+    @ViewBuilder
+    private var artworkView: some View {
+        if let image = artworkImage {
+            // Local UIImage from MediaPlayer
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } else if let url = artworkURL {
+            // Remote URL from Last.fm
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    artworkPlaceholder
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    artworkPlaceholder
+                @unknown default:
+                    artworkPlaceholder
+                }
+            }
+        } else {
+            artworkPlaceholder
+        }
     }
     
     private var artworkPlaceholder: some View {

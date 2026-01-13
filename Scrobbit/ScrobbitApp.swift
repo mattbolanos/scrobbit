@@ -14,7 +14,7 @@ struct ScrobbitApp: App {
     
     init() {
         do {
-            modelContainer = try ModelContainer(for: Track.self, ScrobbleCache.self)
+            modelContainer = try ModelContainer(for: Track.self, LibraryCache.self)
         } catch {
             fatalError("Failed to initialize SwiftData model container: \(error)")
         }

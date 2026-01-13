@@ -128,6 +128,39 @@ final class LastFmService: NSObject {
         return response.scrobbles.attr.accepted
     }
     
+    /// Scrobbles a batch of pending scrobbles to Last.fm.
+    /// - Parameter scrobbles: Array of pending scrobbles to submit
+    /// - Returns: The number of scrobbles successfully accepted by Last.fm
+    @discardableResult
+    func scrobble(_ scrobbles: [PendingScrobble]) async throws -> Int {
+        guard isAuthenticated, let sessionKey = sessionKey else {
+            throw LastFmError.notAuthenticated
+        }
+        
+        guard !scrobbles.isEmpty else { return 0 }
+        
+        // Last.fm allows up to 50 scrobbles per batch
+        let batch = Array(scrobbles.prefix(50))
+        
+        var params: [(String, String)] = [
+            ("method", "track.scrobble"),
+            ("api_key", Secrets.lastFmApiKey),
+            ("sk", sessionKey)
+        ]
+        
+        // Add indexed parameters for each scrobble
+        for (index, scrobble) in batch.enumerated() {
+            params.append(("artist[\(index)]", scrobble.artistName))
+            params.append(("track[\(index)]", scrobble.title))
+            params.append(("album[\(index)]", scrobble.albumTitle))
+            params.append(("timestamp[\(index)]", String(Int(scrobble.scrobbleAt.timeIntervalSince1970))))
+        }
+        
+        let response: ScrobbleResponse = try await post(params: params)
+        
+        return response.scrobbles.attr.accepted
+    }
+    
     /// Fetches the user's recent scrobbles from Last.fm.
     /// - Parameter limit: Maximum number of scrobbles to fetch (default: 50, max: 200)
     /// - Returns: Array of recently scrobbled tracks
@@ -521,6 +554,17 @@ struct LastFmScrobble: Identifiable {
         let timestamp = Int(scrobbledAt.timeIntervalSince1970)
         return "\(artistName)-\(trackName)-\(timestamp)"
     }
+}
+
+// MARK: - DisplayableTrack Conformance
+
+extension LastFmScrobble: DisplayableTrack {
+    var displayTitle: String { trackName }
+    var displayArtist: String { artistName }
+    var displayAlbum: String { albumName }
+    var displayDate: Date? { scrobbledAt }
+    var displayArtworkURL: URL? { artworkURL }
+    var displayArtworkImage: UIImage? { nil }  // Last.fm provides URLs, not images
 }
 
 

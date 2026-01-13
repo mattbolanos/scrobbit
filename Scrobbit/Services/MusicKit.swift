@@ -86,7 +86,7 @@ final class MusicKitService {
     }
     
     // MARK: - MediaPlayer History
-    func fetchLastPlayedSongsFromMediaPlayer(limit: Int = 60) async throws -> (
+    func fetchLastPlayedSongsFromMediaPlayer(limit: Int = 200) async throws -> (
         recentLibrarySongs: [MediaPlayerItem], 
         nonLibrarySongs: [MediaPlayerItem]
     ) {
@@ -104,6 +104,7 @@ final class MusicKitService {
                 title: item.title ?? "",
                 artistName: item.artist ?? "",
                 albumTitle: item.albumTitle ?? "",
+                artwork: item.artwork,
                 playbackDuration: item.playbackDuration,
                 playCount: item.playCount,
                 lastPlayedDate: nil
@@ -120,7 +121,11 @@ final class MusicKitService {
             return date1 > date2
         }
         
-        let recentLibraryItems = Array(sortedLibraryItems!.prefix(limit))
+        guard let sortedItems = sortedLibraryItems else {
+            return (recentLibrarySongs: [], nonLibrarySongs: nonLibrarySongs)
+        }
+        
+        let recentLibraryItems = Array(sortedItems.prefix(limit))
         
         let recentLibrarySongs = recentLibraryItems.compactMap { item -> MediaPlayerItem? in
             return MediaPlayerItem(
@@ -128,6 +133,7 @@ final class MusicKitService {
                 title: item.title ?? "",
                 artistName: item.artist ?? "",
                 albumTitle: item.albumTitle ?? "",
+                artwork: item.artwork,
                 playbackDuration: item.playbackDuration,
                 playCount: item.playCount,
                 lastPlayedDate: item.lastPlayedDate

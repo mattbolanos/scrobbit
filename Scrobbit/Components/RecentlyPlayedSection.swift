@@ -1,34 +1,37 @@
 import SwiftUI
 
 struct RecentlyPlayedSection: View {
-    let scrobbles: [LastFmScrobble]
+    let tracks: [any DisplayableTrack]
+    let title: String
+    let emptyMessage: String
     let isLoading: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            Text("Recent Scrobbles")
+            Text(title)
                 .font(.title2.weight(.bold))
             
-            if isLoading && scrobbles.isEmpty {
+            if isLoading && tracks.isEmpty {
                 recentlyPlayedLoadingView
-            } else if scrobbles.isEmpty {
+            } else if tracks.isEmpty {
                 recentlyPlayedEmptyView
             } else {
                 LazyVStack(spacing: 0) {
-                    ForEach(Array(scrobbles.enumerated()), id: \.element.id) { index, scrobble in
+                    ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                         TrackRow(
-                            songName: scrobble.trackName,
-                            artistName: scrobble.artistName,
-                            albumName: scrobble.albumName,
-                            artworkURL: scrobble.artworkURL,
-                            playedAt: scrobble.scrobbledAt
+                            songName: track.displayTitle,
+                            artistName: track.displayArtist,
+                            albumName: track.displayAlbum,
+                            artworkURL: track.displayArtworkURL,
+                            artworkImage: track.displayArtworkImage,
+                            playedAt: track.displayDate
                         )
                             .padding(.horizontal, Theme.Spacing.md)
                             .padding(.vertical, Theme.Spacing.sm)
                             .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
-                            .padding(.bottom, index == scrobbles.count - 1 ? -Theme.Spacing.sm : 0)
+                            .padding(.bottom, index == tracks.count - 1 ? -Theme.Spacing.sm : 0)
                         
-                        if index < scrobbles.count - 1 {
+                        if index < tracks.count - 1 {
                             Divider()
                         }
                     }
@@ -90,7 +93,7 @@ struct RecentlyPlayedSection: View {
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
             
-            Text("No Last.fm scrobbles found")
+            Text(emptyMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
@@ -110,7 +113,7 @@ struct RecentlyPlayedSection: View {
 
 #Preview {
     RecentlyPlayedSection(
-        scrobbles: [
+        tracks: [
             LastFmScrobble(
                 trackName: "Sample Track",
                 artistName: "Sample Artist",
@@ -120,8 +123,9 @@ struct RecentlyPlayedSection: View {
                 lastFmURL: nil
             )
         ],
+        title: "Latest from Last.fm",
+        emptyMessage: "No scrobbles found",
         isLoading: false
     )
     .padding()
 }
-

@@ -1,9 +1,13 @@
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
     @Environment(\.scrobbleService) private var scrobbleService
+    
+    @Query(sort: \LibraryCache.lastPlayedDate, order: .reverse)
+    private var libraryCache: [LibraryCache]
     
     @State private var recentScrobbles: [LastFmScrobble] = []
     @State private var isLoadingScrobbles = false
@@ -39,12 +43,7 @@ struct HomeView: View {
                         scrobbleButton
                     }
                     
-                    if lastFmService.isAuthenticated {
-                        RecentlyPlayedSection(
-                            scrobbles: recentScrobbles,
-                            isLoading: isLoadingScrobbles
-                        )
-                    }
+                    recentTracksSection
                 }
                 .padding()
             }
@@ -56,13 +55,43 @@ struct HomeView: View {
             .refreshable {
                 await loadRecentScrobbles()
             }
+            .onChange(of: isFullyConnected) { wasConnected, isNowConnected in
+                // Trigger initial sync when user connects both accounts
+                if !wasConnected && isNowConnected {
+                    Task {
+                        await scrobbleService?.performSync()
+                        await loadRecentScrobbles()
+                    }
+                }
+            }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet()
             }
         }
     }
     
-
+    // MARK: - Recent Tracks Section
+    
+    @ViewBuilder
+    private var recentTracksSection: some View {
+        if !libraryCache.isEmpty {
+            // Show library cache data (prioritized)
+            RecentlyPlayedSection(
+                tracks: Array(libraryCache.prefix(30)),
+                title: "Recent from Library",
+                emptyMessage: "No tracks found",
+                isLoading: false
+            )
+        } else if lastFmService.isAuthenticated {
+            // Fallback to Last.fm scrobbles
+            RecentlyPlayedSection(
+                tracks: recentScrobbles,
+                title: "Latest from Last.fm",
+                emptyMessage: "No scrobbles found",
+                isLoading: isLoadingScrobbles
+            )
+        }
+    }
     
     @ViewBuilder
     private var lastFmStatsGrid: some View {
