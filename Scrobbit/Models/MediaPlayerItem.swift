@@ -27,7 +27,7 @@ struct MediaPlayerItem: Identifiable {
         self.artistName = artistName
         self.albumTitle = albumTitle
         // Extract UIImage from MPMediaItemArtwork at a reasonable size
-        self.artworkImage = artwork?.image(at: CGSize(width: 100, height: 100))
+        self.artworkImage = artwork?.image(at: CGSize(width: 300, height: 300))
         self.playbackDuration = playbackDuration
         self.playCount = playCount
         self.lastPlayedDate = lastPlayedDate
