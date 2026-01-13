@@ -17,6 +17,7 @@ final class Track {
     var contentRating: ContentRating?
     var genreNames: [String]?
     var playCount: Int?
+    var lastPlayedDate: Date?
     
     /// Timestamp when this track was played/scrobbled.
     /// For MusicKit tracks, this is estimated by working backwards from "now".
@@ -42,7 +43,8 @@ final class Track {
             url: song.url,
             contentRating: song.contentRating,
             genreNames: song.genreNames,
-            playCount: song.playCount
+            playCount: song.playCount,
+            lastPlayedDate: song.lastPlayedDate
         )
     }
     
@@ -59,7 +61,8 @@ final class Track {
         scrobbledAt: Date? = nil,
         playCount: Int? = nil,
         lastFmURL: URL? = nil,
-        scrobbleID: String? = nil
+        scrobbleID: String? = nil,
+        lastPlayedDate: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -74,6 +77,7 @@ final class Track {
         self.playCount = playCount
         self.lastFmURL = lastFmURL
         self.scrobbleID = scrobbleID
+        self.lastPlayedDate = lastPlayedDate
     }
     
     /// Generates a unique ID for de-duplication of scrobbles.
