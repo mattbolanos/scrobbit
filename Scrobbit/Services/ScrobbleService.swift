@@ -5,7 +5,6 @@ import SwiftUI
 /// Orchestrates the scrobbling flow between Apple Music and Last.fm.
 /// Uses LibraryCache to track play counts and detect new plays.
 @Observable
-@MainActor
 final class ScrobbleService {
     
     /// Maximum age for cache entries (30 days)
