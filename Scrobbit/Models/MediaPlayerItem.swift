@@ -7,11 +7,18 @@ struct MediaPlayerItem: Identifiable {
     let title: String
     let artistName: String
     let albumTitle: String
-    let artworkImage: UIImage?
     let playbackDuration: TimeInterval
     let playCount: Int
     let lastPlayedDate: Date?
-    
+
+    /// Store artwork reference for lazy extraction (avoids blocking during scan)
+    private let artwork: MPMediaItemArtwork?
+
+    /// Lazily extracts UIImage from MPMediaItemArtwork when needed
+    var artworkImage: UIImage? {
+        artwork?.image(at: CGSize(width: 300, height: 300))
+    }
+
     init(
         id: String,
         title: String,
@@ -26,8 +33,7 @@ struct MediaPlayerItem: Identifiable {
         self.title = title
         self.artistName = artistName
         self.albumTitle = albumTitle
-        // Extract UIImage from MPMediaItemArtwork at a reasonable size
-        self.artworkImage = artwork?.image(at: CGSize(width: 300, height: 300))
+        self.artwork = artwork
         self.playbackDuration = playbackDuration
         self.playCount = playCount
         self.lastPlayedDate = lastPlayedDate

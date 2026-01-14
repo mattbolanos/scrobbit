@@ -38,11 +38,11 @@ struct HomeView: View {
                     if lastFmService.isAuthenticated {
                         lastFmStatsGrid
                     }
-                    
+
                     if isFullyConnected {
-                        scrobbleButton
+                        lastSyncLabel
                     }
-                    
+
                     recentTracksSection
                 }
                 .padding()
@@ -53,6 +53,9 @@ struct HomeView: View {
                 await loadRecentScrobbles()
             }
             .refreshable {
+                if isFullyConnected {
+                    await scrobbleService?.performSync()
+                }
                 await loadRecentScrobbles()
             }
             .onChange(of: isFullyConnected) { wasConnected, isNowConnected in
@@ -102,35 +105,20 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Scrobble Button
-    
-    private var scrobbleButton: some View {
-        Button {
-            Task {
-                await scrobbleService?.performSync()
-                await loadRecentScrobbles()
+    // MARK: - Last Sync Label
+
+    private var lastSyncLabel: some View {
+        Group {
+            if let lastSync = scrobbleService?.lastSyncDate {
+                Text("Last synced \(lastSync.formatted(.relative(presentation: .named)))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Pull down to sync")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-        } label: {
-            HStack(spacing: Theme.Spacing.sm) {
-                if scrobbleService?.isSyncing == true {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.white)
-                } else {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                }
-                Text(scrobbleService?.isSyncing == true ? "Scrobbling..." : "Scrobble Now")
-            }
-            .font(.headline)
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                    .fill(Theme.Colors.accent)
-            )
         }
-        .disabled(scrobbleService?.isSyncing == true)
     }
     
     // MARK: - Load User Info

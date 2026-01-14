@@ -87,60 +87,66 @@ final class MusicKitService {
     
     // MARK: - MediaPlayer History
     func fetchLastPlayedSongsFromMediaPlayer(limit: Int = 200) async throws -> (
-        recentLibrarySongs: [MediaPlayerItem], 
+        recentLibrarySongs: [MediaPlayerItem],
         nonLibrarySongs: [MediaPlayerItem]
     ) {
         guard isAuthorized else {
             throw MusicKitError.notAuthorized
         }
-        
-        let query = MPMediaQuery.songs()
 
-        let emptyPlayedItems = query.items?.filter { $0.lastPlayedDate == nil }
-        
-        let nonLibrarySongs = emptyPlayedItems?.compactMap { item -> MediaPlayerItem? in
-            return MediaPlayerItem(
-                id: String(item.persistentID),
-                title: item.title ?? "",
-                artistName: item.artist ?? "",
-                albumTitle: item.albumTitle ?? "",
-                artwork: item.artwork,
-                playbackDuration: item.playbackDuration,
-                playCount: item.playCount,
-                lastPlayedDate: nil
-            )
-        } ?? []
+        // Run MediaPlayer query and processing on background thread to avoid blocking UI
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let query = MPMediaQuery.songs()
 
-        let libraryItems = query.items?.filter { $0.lastPlayedDate != nil }
-        
-        // Sort by last played date (most recent first)
-        let sortedLibraryItems = libraryItems?.sorted { item1, item2 in
-            guard let date1 = item1.lastPlayedDate, let date2 = item2.lastPlayedDate else {
-                return false
+                let emptyPlayedItems = query.items?.filter { $0.lastPlayedDate == nil }
+
+                let nonLibrarySongs = emptyPlayedItems?.compactMap { item -> MediaPlayerItem? in
+                    return MediaPlayerItem(
+                        id: String(item.persistentID),
+                        title: item.title ?? "",
+                        artistName: item.artist ?? "",
+                        albumTitle: item.albumTitle ?? "",
+                        artwork: item.artwork,
+                        playbackDuration: item.playbackDuration,
+                        playCount: item.playCount,
+                        lastPlayedDate: nil
+                    )
+                } ?? []
+
+                let libraryItems = query.items?.filter { $0.lastPlayedDate != nil }
+
+                // Sort by last played date (most recent first)
+                let sortedLibraryItems = libraryItems?.sorted { item1, item2 in
+                    guard let date1 = item1.lastPlayedDate, let date2 = item2.lastPlayedDate else {
+                        return false
+                    }
+                    return date1 > date2
+                }
+
+                guard let sortedItems = sortedLibraryItems else {
+                    continuation.resume(returning: (recentLibrarySongs: [], nonLibrarySongs: nonLibrarySongs))
+                    return
+                }
+
+                let recentLibraryItems = Array(sortedItems.prefix(limit))
+
+                let recentLibrarySongs = recentLibraryItems.compactMap { item -> MediaPlayerItem? in
+                    return MediaPlayerItem(
+                        id: String(item.persistentID),
+                        title: item.title ?? "",
+                        artistName: item.artist ?? "",
+                        albumTitle: item.albumTitle ?? "",
+                        artwork: item.artwork,
+                        playbackDuration: item.playbackDuration,
+                        playCount: item.playCount,
+                        lastPlayedDate: item.lastPlayedDate
+                    )
+                }
+
+                continuation.resume(returning: (recentLibrarySongs: recentLibrarySongs, nonLibrarySongs: nonLibrarySongs))
             }
-            return date1 > date2
         }
-        
-        guard let sortedItems = sortedLibraryItems else {
-            return (recentLibrarySongs: [], nonLibrarySongs: nonLibrarySongs)
-        }
-        
-        let recentLibraryItems = Array(sortedItems.prefix(limit))
-        
-        let recentLibrarySongs = recentLibraryItems.compactMap { item -> MediaPlayerItem? in
-            return MediaPlayerItem(
-                id: String(item.persistentID),
-                title: item.title ?? "",
-                artistName: item.artist ?? "",
-                albumTitle: item.albumTitle ?? "",
-                artwork: item.artwork,
-                playbackDuration: item.playbackDuration,
-                playCount: item.playCount,
-                lastPlayedDate: item.lastPlayedDate
-            )
-        }
-        
-        return (recentLibrarySongs: recentLibrarySongs, nonLibrarySongs: nonLibrarySongs)
     }
 }
 

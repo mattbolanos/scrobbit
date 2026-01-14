@@ -65,73 +65,66 @@ final class ScrobbleService {
     /// then scrobbles any new plays to Last.fm.
     private func scrobbleNewPlays() async throws {
         let syncTime = Date()
-        
+
         // Capture the previous sync date before we update it
         let previousSyncDate = lastSyncDate
-        
+
         // 1. Fetch library songs from MediaPlayer (these have trusted timestamps)
         let (recentLibrarySongs, _) = try await musicKitService.fetchLastPlayedSongsFromMediaPlayer()
-        
+
         guard !recentLibrarySongs.isEmpty else { return }
-        
-        // 2. Check if this is the first sync (no cache entries exist)
-        let isFirstSync = try isLibraryCacheEmpty()
-        
-        // 3. Compare against cache and generate pending scrobbles
+
+        // 2. Fetch all LibraryCache entries and build lookup in memory
+        // (SwiftData predicates don't support .contains() with arrays)
+        let cacheDescriptor = FetchDescriptor<LibraryCache>()
+        let cachedEntries = try modelContext.fetch(cacheDescriptor)
+        let cacheLookup = Dictionary(uniqueKeysWithValues: cachedEntries.map { ($0.persistentID, $0) })
+
+        // Check if this is the first sync (no cache entries exist)
+        let isFirstSync = cachedEntries.isEmpty
+
+        // 4. Compare against cache and generate pending scrobbles
         var newPendingScrobbles: [PendingScrobble] = []
-        
+
         for item in recentLibrarySongs {
-            let scrobbles = try processLibraryItem(
+            let scrobbles = processLibraryItem(
                 item,
+                cachedEntry: cacheLookup[item.id],
                 isFirstSync: isFirstSync,
                 syncTime: syncTime,
                 previousSyncDate: previousSyncDate
             )
             newPendingScrobbles.append(contentsOf: scrobbles)
         }
-        
-        // 4. Update UI with pending scrobbles
+
+        // 5. Update UI with pending scrobbles
         pendingScrobbles = newPendingScrobbles.sorted { $0.scrobbleAt > $1.scrobbleAt }
-        
-        // 5. Send to Last.fm if we have any
+
+        // 6. Send to Last.fm if we have any
         if !pendingScrobbles.isEmpty {
             let accepted = try await lastFmService.scrobble(pendingScrobbles)
-            
+
             if accepted > 0 {
                 // Clear pending after successful scrobble
                 pendingScrobbles = []
             }
         }
-        
-        // 6. Save cache changes and prune old entries
+
+        // 7. Save cache changes and prune old entries
         try modelContext.save()
         try pruneOldCacheEntries()
-    }
-    
-    /// Checks if the library cache is empty (first sync scenario)
-    private func isLibraryCacheEmpty() throws -> Bool {
-        let descriptor = FetchDescriptor<LibraryCache>()
-        let count = try modelContext.fetchCount(descriptor)
-        return count == 0
     }
     
     /// Processes a single library item, comparing against cache and generating scrobbles.
     /// Returns pending scrobbles for any new plays detected.
     private func processLibraryItem(
         _ item: MediaPlayerItem,
+        cachedEntry: LibraryCache?,
         isFirstSync: Bool,
         syncTime: Date,
         previousSyncDate: Date?
-    ) throws -> [PendingScrobble] {
-        let itemID = item.id
-        
-        // Fetch existing cache entry for this item
-        let descriptor = FetchDescriptor<LibraryCache>(
-            predicate: #Predicate { $0.persistentID == itemID }
-        )
-        let existing = try modelContext.fetch(descriptor)
-        
-        if let cachedEntry = existing.first {
+    ) -> [PendingScrobble] {
+        if let cachedEntry = cachedEntry {
             // Existing song - check for new plays
             return updateExistingEntry(cachedEntry, with: item, syncTime: syncTime)
         } else {
@@ -239,35 +232,39 @@ final class ScrobbleService {
     }
     
     // MARK: - History Cache (Last.fm scrobbles for display)
-    
+
     /// Fetches recent scrobbles from Last.fm and updates the local history cache.
     func refreshHistoryCache() async throws {
-        let scrobbles: [LastFmScrobble]
-        do {
-            scrobbles = try await lastFmService.fetchRecentScrobbles(limit: 50)
-        } catch {
-            throw error
-        }
-        
-        var insertedCount = 0
-        var updatedCount = 0
-        
-        // Upsert into SwiftData
-        for scrobble in scrobbles {
-            let scrobbleID = Track.generateScrobbleID(
+        let scrobbles = try await lastFmService.fetchRecentScrobbles(limit: 50)
+
+        guard !scrobbles.isEmpty else { return }
+
+        // Generate all scrobble IDs upfront
+        let scrobbleIDsAndData: [(id: String, scrobble: LastFmScrobble)] = scrobbles.map { scrobble in
+            let id = Track.generateScrobbleID(
                 artistName: scrobble.artistName,
                 trackName: scrobble.trackName,
                 timestamp: scrobble.scrobbledAt
             )
-            
-            // Check if already exists
-            let descriptor = FetchDescriptor<Track>(
-                predicate: #Predicate { $0.scrobbleID == scrobbleID }
-            )
-            
-            let existing = try modelContext.fetch(descriptor)
-            
-            if existing.isEmpty {
+            return (id, scrobble)
+        }
+
+        // Fetch all Track entries and build lookup in memory
+        // (SwiftData predicates don't support .contains() with arrays or ?? operator)
+        let trackDescriptor = FetchDescriptor<Track>()
+        let existingTracks = try modelContext.fetch(trackDescriptor)
+        let trackLookup = Dictionary(uniqueKeysWithValues: existingTracks.compactMap { track -> (String, Track)? in
+            guard let scrobbleID = track.scrobbleID else { return nil }
+            return (scrobbleID, track)
+        })
+
+        // Upsert into SwiftData
+        for (scrobbleID, scrobble) in scrobbleIDsAndData {
+            if let existingTrack = trackLookup[scrobbleID] {
+                // Update existing record (artwork might have changed)
+                existingTrack.artworkURL = scrobble.artworkURL
+                existingTrack.lastFmURL = scrobble.lastFmURL
+            } else {
                 // Insert new record
                 let track = Track(
                     title: scrobble.trackName,
@@ -279,20 +276,10 @@ final class ScrobbleService {
                     scrobbleID: scrobbleID
                 )
                 modelContext.insert(track)
-                insertedCount += 1
-            } else if let existingTrack = existing.first {
-                // Update existing record (artwork might have changed)
-                existingTrack.artworkURL = scrobble.artworkURL
-                existingTrack.lastFmURL = scrobble.lastFmURL
-                updatedCount += 1
             }
         }
-        
-        do {
-            try modelContext.save()
-        } catch {
-            throw error
-        }
+
+        try modelContext.save()
     }
     
     // MARK: - Cache Management
