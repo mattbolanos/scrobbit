@@ -134,20 +134,26 @@ final class LastFmService: NSObject {
     @discardableResult
     func scrobble(_ scrobbles: [PendingScrobble]) async throws -> Int {
         guard isAuthenticated, let sessionKey = sessionKey else {
+            print("[LastFmService] scrobble failed: not authenticated")
             throw LastFmError.notAuthenticated
         }
-        
-        guard !scrobbles.isEmpty else { return 0 }
-        
+
+        guard !scrobbles.isEmpty else {
+            print("[LastFmService] scrobble: empty scrobbles array")
+            return 0
+        }
+
+        print("[LastFmService] scrobble called with \(scrobbles.count) scrobbles")
+
         // Last.fm allows up to 50 scrobbles per batch
         let batch = Array(scrobbles.prefix(50))
-        
+
         var params: [(String, String)] = [
             ("method", "track.scrobble"),
             ("api_key", Secrets.lastFmApiKey),
             ("sk", sessionKey)
         ]
-        
+
         // Add indexed parameters for each scrobble
         for (index, scrobble) in batch.enumerated() {
             params.append(("artist[\(index)]", scrobble.artistName))
@@ -155,9 +161,11 @@ final class LastFmService: NSObject {
             params.append(("album[\(index)]", scrobble.albumTitle))
             params.append(("timestamp[\(index)]", String(Int(scrobble.scrobbleAt.timeIntervalSince1970))))
         }
-        
+
+        print("[LastFmService] Calling post() for track.scrobble...")
         let response: ScrobbleResponse = try await post(params: params)
-        
+        print("[LastFmService] Response: accepted=\(response.scrobbles.attr.accepted), ignored=\(response.scrobbles.attr.ignored)")
+
         return response.scrobbles.attr.accepted
     }
     
@@ -343,33 +351,36 @@ final class LastFmService: NSObject {
         }
         
         components.queryItems?.append(URLQueryItem(name: "format", value: "json"))
-        
+
         guard let url = components.url else {
             throw LastFmError.invalidURL
         }
-        
-        let (data, response) = try await URLSession.shared.data(from: url)
-        
+
+        // Use detached task to prevent cancellation from .refreshable
+        let (data, response) = try await Task.detached {
+            try await URLSession.shared.data(from: url)
+        }.value
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LastFmError.requestFailed
         }
-        
+
         // Check for API errors in response body first (Last.fm returns 200 even for errors sometimes)
         if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
             throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             throw LastFmError.httpError(statusCode: httpResponse.statusCode)
         }
-        
+
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
             throw LastFmError.invalidResponse
         }
     }
-    
+
     // MARK: - Generic POST
     
     private func post<T: Decodable>(params: [(String, String)]) async throws -> T {
@@ -394,24 +405,33 @@ final class LastFmService: NSObject {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = bodyString.data(using: .utf8)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
+        // Use detached task to prevent cancellation from .refreshable
+        let (data, response) = try await Task.detached {
+            try await URLSession.shared.data(for: request)
+        }.value
+
+        // Debug: print raw response
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("[LastFmService] POST raw response: \(responseString)")
+        }
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LastFmError.requestFailed
         }
-        
+
         // Check for API errors in response body first (Last.fm returns 200 even for errors sometimes)
         if let errorResponse = try? JSONDecoder().decode(LastFmAPIError.self, from: data) {
             throw LastFmError.apiError(code: errorResponse.error, message: errorResponse.message)
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             throw LastFmError.httpError(statusCode: httpResponse.statusCode)
         }
-        
+
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
+            print("[LastFmService] JSON decode error: \(error)")
             throw LastFmError.invalidResponse
         }
     }
@@ -477,6 +497,29 @@ private struct ScrobbleResponse: Decodable {
     struct ScrobbleAttr: Decodable {
         let accepted: Int
         let ignored: Int
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+
+            // Last.fm API sometimes returns these as strings, sometimes as ints
+            if let intValue = try? container.decode(Int.self, forKey: .accepted) {
+                accepted = intValue
+            } else {
+                let stringValue = try container.decode(String.self, forKey: .accepted)
+                accepted = Int(stringValue) ?? 0
+            }
+
+            if let intValue = try? container.decode(Int.self, forKey: .ignored) {
+                ignored = intValue
+            } else {
+                let stringValue = try container.decode(String.self, forKey: .ignored)
+                ignored = Int(stringValue) ?? 0
+            }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case accepted, ignored
+        }
     }
 }
 

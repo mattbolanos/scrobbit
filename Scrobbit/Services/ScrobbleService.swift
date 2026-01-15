@@ -2,22 +2,37 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+/// Result of a sync operation
+struct SyncResult: Equatable {
+    let scrobbledCount: Int
+    let error: Error?
+
+    static func == (lhs: SyncResult, rhs: SyncResult) -> Bool {
+        lhs.scrobbledCount == rhs.scrobbledCount &&
+        lhs.error?.localizedDescription == rhs.error?.localizedDescription
+    }
+}
+
 /// Orchestrates the scrobbling flow between Apple Music and Last.fm.
 /// Uses LibraryCache to track play counts and detect new plays.
 @Observable
 final class ScrobbleService {
-    
+
     /// Maximum age for cache entries (30 days)
     private static let cacheMaxAge: TimeInterval = 30 * 24 * 60 * 60
-    
+
+    /// How often to prune cache (every 6 hours)
+    private static let pruneInterval: TimeInterval = 6 * 60 * 60
+
     private let lastFmService: LastFmService
     private let musicKitService: MusicKitService
     private let modelContext: ModelContext
-    
+
     private(set) var isSyncing: Bool = false
     private(set) var lastSyncError: Error?
     private(set) var lastSyncDate: Date?
-    
+    private var lastPruneDate: Date?
+
     /// Pending scrobbles waiting to be sent to Last.fm (for UI display)
     private(set) var pendingScrobbles: [PendingScrobble] = []
     
@@ -32,47 +47,69 @@ final class ScrobbleService {
     }
     
     // MARK: - Sync Operations
-    
+
     /// Performs a full sync: scrobbles new tracks and refreshes the history cache.
     /// This is the main entry point for background refresh and manual sync.
-    func performSync() async {
-        guard !isSyncing else { return }
-        guard lastFmService.isAuthenticated && musicKitService.isAuthorized else { return }
-        
+    /// Returns the number of tracks scrobbled, or nil if sync was skipped/failed.
+    @discardableResult
+    func performSync() async -> SyncResult? {
+        guard !isSyncing else { return nil }
+        guard lastFmService.isAuthenticated && musicKitService.isAuthorized else { return nil }
+
         isSyncing = true
         lastSyncError = nil
-        
+
         defer {
             isSyncing = false
             lastSyncDate = Date()
         }
-        
+
+        var scrobbledCount = 0
+
         do {
-            // Step 1: Detect and scrobble new plays from library
-            try await scrobbleNewPlays()
-            
-            // Step 2: Refresh local history cache from Last.fm
-            try await refreshHistoryCache()
-            
+            // Step 1: Detect and scrobble new plays from library (critical path)
+            scrobbledCount = try await scrobbleNewPlays()
+            print("[ScrobbleService] scrobbleNewPlays returned: \(scrobbledCount)")
+
+            // Step 2: Refresh history cache in the background (non-blocking)
+            Task.detached(priority: .utility) { [weak self] in
+                try? await self?.refreshHistoryCache()
+            }
+
+            // Step 3: Prune old cache entries periodically (non-blocking)
+            if shouldPrune() {
+                Task.detached(priority: .background) { [weak self] in
+                    try? await self?.pruneOldCacheEntries()
+                }
+                lastPruneDate = Date()
+            }
+
+            print("[ScrobbleService] Returning SyncResult with scrobbledCount=\(scrobbledCount)")
+            return SyncResult(scrobbledCount: scrobbledCount, error: nil)
         } catch {
+            print("[ScrobbleService] Error during sync: \(error)")
             lastSyncError = error
+            return SyncResult(scrobbledCount: scrobbledCount, error: error)
         }
+    }
+
+    private func shouldPrune() -> Bool {
+        guard let lastPrune = lastPruneDate else { return true }
+        return Date().timeIntervalSince(lastPrune) > Self.pruneInterval
     }
     
     // MARK: - Library-Based Scrobbling
-    
+
     /// Detects new plays by comparing MediaPlayer library state against LibraryCache,
     /// then scrobbles any new plays to Last.fm.
-    private func scrobbleNewPlays() async throws {
+    /// Returns the number of tracks successfully scrobbled.
+    private func scrobbleNewPlays() async throws -> Int {
         let syncTime = Date()
-
-        // Capture the previous sync date before we update it
-        let previousSyncDate = lastSyncDate
 
         // 1. Fetch library songs from MediaPlayer (these have trusted timestamps)
         let (recentLibrarySongs, _) = try await musicKitService.fetchLastPlayedSongsFromMediaPlayer()
 
-        guard !recentLibrarySongs.isEmpty else { return }
+        guard !recentLibrarySongs.isEmpty else { return 0 }
 
         // 2. Fetch all LibraryCache entries and build lookup in memory
         // (SwiftData predicates don't support .contains() with arrays)
@@ -83,7 +120,7 @@ final class ScrobbleService {
         // Check if this is the first sync (no cache entries exist)
         let isFirstSync = cachedEntries.isEmpty
 
-        // 4. Compare against cache and generate pending scrobbles
+        // 3. Compare against cache and generate pending scrobbles
         var newPendingScrobbles: [PendingScrobble] = []
 
         for item in recentLibrarySongs {
@@ -91,28 +128,38 @@ final class ScrobbleService {
                 item,
                 cachedEntry: cacheLookup[item.id],
                 isFirstSync: isFirstSync,
-                syncTime: syncTime,
-                previousSyncDate: previousSyncDate
+                syncTime: syncTime
             )
             newPendingScrobbles.append(contentsOf: scrobbles)
         }
 
-        // 5. Update UI with pending scrobbles
+        // 4. Update UI with pending scrobbles
         pendingScrobbles = newPendingScrobbles.sorted { $0.scrobbleAt > $1.scrobbleAt }
+        print("[ScrobbleService] pendingScrobbles count: \(pendingScrobbles.count)")
+        for (i, scrobble) in pendingScrobbles.enumerated() {
+            print("[ScrobbleService]   [\(i)] \(scrobble.artistName) - \(scrobble.title)")
+        }
 
-        // 6. Send to Last.fm if we have any
+        var scrobbledCount = 0
+
+        // 5. Send to Last.fm if we have any
         if !pendingScrobbles.isEmpty {
-            let accepted = try await lastFmService.scrobble(pendingScrobbles)
+            print("[ScrobbleService] Calling lastFmService.scrobble with \(pendingScrobbles.count) scrobbles...")
+            scrobbledCount = try await lastFmService.scrobble(pendingScrobbles)
+            print("[ScrobbleService] lastFmService.scrobble returned: \(scrobbledCount)")
 
-            if accepted > 0 {
+            if scrobbledCount > 0 {
                 // Clear pending after successful scrobble
                 pendingScrobbles = []
             }
+        } else {
+            print("[ScrobbleService] No pending scrobbles to send")
         }
 
-        // 7. Save cache changes and prune old entries
+        // 6. Save cache changes
         try modelContext.save()
-        try pruneOldCacheEntries()
+
+        return scrobbledCount
     }
     
     /// Processes a single library item, comparing against cache and generating scrobbles.
@@ -121,15 +168,14 @@ final class ScrobbleService {
         _ item: MediaPlayerItem,
         cachedEntry: LibraryCache?,
         isFirstSync: Bool,
-        syncTime: Date,
-        previousSyncDate: Date?
+        syncTime: Date
     ) -> [PendingScrobble] {
         if let cachedEntry = cachedEntry {
             // Existing song - check for new plays
             return updateExistingEntry(cachedEntry, with: item, syncTime: syncTime)
         } else {
             // New song - add to cache
-            return addNewEntry(for: item, isFirstSync: isFirstSync, syncTime: syncTime, previousSyncDate: previousSyncDate)
+            return addNewEntry(for: item, isFirstSync: isFirstSync, syncTime: syncTime)
         }
     }
     
@@ -160,31 +206,31 @@ final class ScrobbleService {
     
     /// Adds a new cache entry for a song not previously tracked.
     /// On first sync, we don't scrobble historical plays.
-    /// On subsequent syncs, we scrobble if the song was played after the last sync.
+    /// On subsequent syncs, we scrobble if the song was played within Last.fm's 2-week window.
     private func addNewEntry(
         for item: MediaPlayerItem,
         isFirstSync: Bool,
-        syncTime: Date,
-        previousSyncDate: Date?
+        syncTime: Date
     ) -> [PendingScrobble] {
         // Create cache entry
         let newEntry = LibraryCache(from: item, syncedAt: syncTime)
         modelContext.insert(newEntry)
-        
+
         // On first sync, don't scrobble - just establish baseline
-        // On subsequent syncs, scrobble if the song was played after the last sync
-        if !isFirstSync, let lastPlayed = item.lastPlayedDate, let previousSync = previousSyncDate {
-            if lastPlayed > previousSync {
-                return [PendingScrobble(
-                    title: item.title,
-                    artistName: item.artistName,
-                    albumTitle: item.albumTitle,
-                    scrobbleAt: lastPlayed
-                )]
-            }
-        }
-        
-        return []
+        guard !isFirstSync else { return [] }
+
+        // Scrobble if the song has been played and timestamp is within Last.fm's 2-week window
+        guard item.playCount > 0, let lastPlayed = item.lastPlayedDate else { return [] }
+
+        let twoWeeksAgo = Date().addingTimeInterval(-14 * 24 * 60 * 60)
+        guard lastPlayed > twoWeeksAgo else { return [] }
+
+        return [PendingScrobble(
+            title: item.title,
+            artistName: item.artistName,
+            albumTitle: item.albumTitle,
+            scrobbleAt: lastPlayed
+        )]
     }
     
     /// Generates scrobbles for multiple plays of the same song.
@@ -213,19 +259,20 @@ final class ScrobbleService {
     }
     
     /// Removes cache entries older than 30 days to prevent unbounded growth.
-    private func pruneOldCacheEntries() throws {
+    @MainActor
+    private func pruneOldCacheEntries() async throws {
         let cutoffDate = Date().addingTimeInterval(-Self.cacheMaxAge)
-        
+
         let descriptor = FetchDescriptor<LibraryCache>(
             predicate: #Predicate { $0.lastSyncedAt < cutoffDate }
         )
-        
+
         let oldEntries = try modelContext.fetch(descriptor)
-        
+
         for entry in oldEntries {
             modelContext.delete(entry)
         }
-        
+
         if !oldEntries.isEmpty {
             try modelContext.save()
         }

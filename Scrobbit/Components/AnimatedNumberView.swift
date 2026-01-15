@@ -4,10 +4,13 @@ struct AnimatedNumberView: View {
     let value: Int
     let font: Font
     var isSkeleton: Bool = false
-    
+
     @State private var displayedValue: Int = 0
     @State private var shimmerPhase: CGFloat = 0
-    
+
+    private let animationDuration: Double = 0.5
+    private let steps: Int = 12
+
     var body: some View {
         if isSkeleton {
             skeletonView
@@ -16,12 +19,27 @@ struct AnimatedNumberView: View {
                 .font(font)
                 .fontWeight(.bold)
                 .foregroundStyle(.primary)
-                .contentTransition(.numericText(value: Double(displayedValue)))
                 .onChange(of: value, initial: true) { _, newValue in
-                    withAnimation(Theme.Animation.numberCount) {
-                        displayedValue = newValue
-                    }
+                    animateToValue(newValue)
                 }
+        }
+    }
+
+    private func animateToValue(_ target: Int) {
+        let startValue = displayedValue
+        let delta = target - startValue
+
+        guard delta != 0 else { return }
+
+        let stepDuration = animationDuration / Double(steps)
+
+        for step in 0...steps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(step)) {
+                // Ease-out curve: faster at start, slower at end
+                let progress = Double(step) / Double(steps)
+                let easedProgress = 1 - pow(1 - progress, 3)
+                displayedValue = startValue + Int(Double(delta) * easedProgress)
+            }
         }
     }
     
@@ -47,7 +65,7 @@ struct AnimatedNumberView: View {
                     endPoint: .trailing
                 )
             )
-            .frame(width: 100, height: 28)
+            .frame(width: 100, height: 32)
             .onAppear {
                 withAnimation(
                     .linear(duration: 1.5)
@@ -60,7 +78,7 @@ struct AnimatedNumberView: View {
 }
 
 #Preview {
-    VStack(spacing: 20) {
+    HStack(spacing: 20) {
         AnimatedNumberView(value: 12345, font: .title, )
         AnimatedNumberView(value: 0, font: .title,  isSkeleton: true)
     }
