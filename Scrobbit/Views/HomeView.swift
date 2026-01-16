@@ -18,6 +18,7 @@ struct HomeView: View {
     @State private var showSyncToast = false
     @State private var syncToastMessage = ""
     @State private var isSyncing = false
+    @State private var isScanning = false
     
     private var connectedCount: Int {
         var count = 0
@@ -54,18 +55,13 @@ struct HomeView: View {
                         scanButton
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    if isSyncing {
-                        ProgressView()
-                    }
-                }
             }
             .task {
                 await loadUserInfoIfNeeded()
                 await loadRecentScrobbles()
             }
             .refreshable {
-                await performSyncWithFeedback(showSpinner: false)
+                await performSyncWithFeedback()
             }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet()
@@ -110,13 +106,19 @@ struct HomeView: View {
     private var scanButton: some View {
         Button {
             Task {
-                await performSyncWithFeedback(showSpinner: true)
+                isScanning = true
+                await performSyncWithFeedback()
+                isScanning = false
             }
         } label: {
-            Text("Scan")
+            if isScanning {
+                ProgressView()
+            } else {
+                Text("Scan")
+            }
         }
         .font(.headline)
-        .disabled(isSyncing)
+        .disabled(isSyncing || isScanning)
     }
     
     // MARK: - Load User Info
@@ -135,10 +137,10 @@ struct HomeView: View {
 
     // MARK: - Sync
 
-    private func performSyncWithFeedback(showSpinner: Bool = false) async {
+    private func performSyncWithFeedback() async {
         guard isFullyConnected else { return }
 
-        isSyncing = showSpinner
+        isSyncing = true
         let result = await scrobbleService?.performSync()
         isSyncing = false
         
