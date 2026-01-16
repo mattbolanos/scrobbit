@@ -87,63 +87,18 @@ final class LastFmService: NSObject {
     
     // MARK: - Scrobbling
     
-    /// Scrobbles a batch of tracks to Last.fm.
-    /// - Parameter tracks: Array of tracks to scrobble
-    /// - Returns: The number of tracks successfully accepted by Last.fm
-    @discardableResult
-    func scrobble(_ tracks: [Track]) async throws -> Int {
-        guard isAuthenticated, let sessionKey = sessionKey else {
-            throw LastFmError.notAuthenticated
-        }
-        
-        guard !tracks.isEmpty else { return 0 }
-        
-        // Last.fm allows up to 50 scrobbles per batch
-        let batch = Array(tracks.prefix(50))
-        
-        var params: [(String, String)] = [
-            ("method", "track.scrobble"),
-            ("api_key", Secrets.lastFmApiKey),
-            ("sk", sessionKey)
-        ]
-        
-        // Add indexed parameters for each track
-        for (index, track) in batch.enumerated() {
-            params.append(("artist[\(index)]", track.artistName))
-            params.append(("track[\(index)]", track.title))
-            params.append(("album[\(index)]", track.albumTitle))
-            
-            // Use scrobble time or current time
-            let timestamp = track.scrobbledAt ?? Date()
-            params.append(("timestamp[\(index)]", String(Int(timestamp.timeIntervalSince1970))))
-            
-            // Optional: duration in seconds
-            if let duration = track.duration {
-                params.append(("duration[\(index)]", String(Int(duration))))
-            }
-        }
-        
-        let response: ScrobbleResponse = try await post(params: params)
-        
-        return response.scrobbles.attr.accepted
-    }
-    
     /// Scrobbles a batch of pending scrobbles to Last.fm.
     /// - Parameter scrobbles: Array of pending scrobbles to submit
     /// - Returns: The number of scrobbles successfully accepted by Last.fm
     @discardableResult
     func scrobble(_ scrobbles: [PendingScrobble]) async throws -> Int {
         guard isAuthenticated, let sessionKey = sessionKey else {
-            print("[LastFmService] scrobble failed: not authenticated")
             throw LastFmError.notAuthenticated
         }
 
         guard !scrobbles.isEmpty else {
-            print("[LastFmService] scrobble: empty scrobbles array")
             return 0
         }
-
-        print("[LastFmService] scrobble called with \(scrobbles.count) scrobbles")
 
         // Last.fm allows up to 50 scrobbles per batch
         let batch = Array(scrobbles.prefix(50))
@@ -162,9 +117,7 @@ final class LastFmService: NSObject {
             params.append(("timestamp[\(index)]", String(Int(scrobble.scrobbleAt.timeIntervalSince1970))))
         }
 
-        print("[LastFmService] Calling post() for track.scrobble...")
         let response: ScrobbleResponse = try await post(params: params)
-        print("[LastFmService] Response: accepted=\(response.scrobbles.attr.accepted), ignored=\(response.scrobbles.attr.ignored)")
 
         return response.scrobbles.attr.accepted
     }
@@ -410,10 +363,6 @@ final class LastFmService: NSObject {
             try await URLSession.shared.data(for: request)
         }.value
 
-        // Debug: print raw response
-        if let responseString = String(data: data, encoding: .utf8) {
-            print("[LastFmService] POST raw response: \(responseString)")
-        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LastFmError.requestFailed
@@ -431,7 +380,6 @@ final class LastFmService: NSObject {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            print("[LastFmService] JSON decode error: \(error)")
             throw LastFmError.invalidResponse
         }
     }

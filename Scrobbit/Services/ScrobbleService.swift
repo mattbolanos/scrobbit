@@ -69,7 +69,6 @@ final class ScrobbleService {
         do {
             // Step 1: Detect and scrobble new plays from library (critical path)
             scrobbledCount = try await scrobbleNewPlays()
-            print("[ScrobbleService] scrobbleNewPlays returned: \(scrobbledCount)")
 
             // Step 2: Refresh history cache in the background (non-blocking)
             Task.detached(priority: .utility) { [weak self] in
@@ -84,10 +83,8 @@ final class ScrobbleService {
                 lastPruneDate = Date()
             }
 
-            print("[ScrobbleService] Returning SyncResult with scrobbledCount=\(scrobbledCount)")
             return SyncResult(scrobbledCount: scrobbledCount, error: nil)
         } catch {
-            print("[ScrobbleService] Error during sync: \(error)")
             lastSyncError = error
             return SyncResult(scrobbledCount: scrobbledCount, error: error)
         }
@@ -135,25 +132,16 @@ final class ScrobbleService {
 
         // 4. Update UI with pending scrobbles
         pendingScrobbles = newPendingScrobbles.sorted { $0.scrobbleAt > $1.scrobbleAt }
-        print("[ScrobbleService] pendingScrobbles count: \(pendingScrobbles.count)")
-        for (i, scrobble) in pendingScrobbles.enumerated() {
-            print("[ScrobbleService]   [\(i)] \(scrobble.artistName) - \(scrobble.title)")
-        }
-
         var scrobbledCount = 0
 
         // 5. Send to Last.fm if we have any
         if !pendingScrobbles.isEmpty {
-            print("[ScrobbleService] Calling lastFmService.scrobble with \(pendingScrobbles.count) scrobbles...")
             scrobbledCount = try await lastFmService.scrobble(pendingScrobbles)
-            print("[ScrobbleService] lastFmService.scrobble returned: \(scrobbledCount)")
 
             if scrobbledCount > 0 {
                 // Clear pending after successful scrobble
                 pendingScrobbles = []
             }
-        } else {
-            print("[ScrobbleService] No pending scrobbles to send")
         }
 
         // 6. Save cache changes

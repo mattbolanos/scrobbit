@@ -38,7 +38,6 @@ struct ToastModifier: ViewModifier {
             .overlay(alignment: .top) {
                 if isPresented {
                     ToastView(message: message, icon: icon)
-                        .padding(.top, 60)
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .zIndex(999)
                         .onAppear {

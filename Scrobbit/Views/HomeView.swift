@@ -17,6 +17,7 @@ struct HomeView: View {
     // Sync UI state
     @State private var showSyncToast = false
     @State private var syncToastMessage = ""
+    @State private var isSyncing = false
     
     private var connectedCount: Int {
         var count = 0
@@ -50,7 +51,12 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isFullyConnected {
-                        lastSyncLabel
+                        scanButton
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if isSyncing {
+                        ProgressView()
                     }
                 }
             }
@@ -59,7 +65,7 @@ struct HomeView: View {
                 await loadRecentScrobbles()
             }
             .refreshable {
-                await performSyncWithFeedback()
+                await performSyncWithFeedback(showSpinner: false)
             }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet()
@@ -99,16 +105,18 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Last Sync Label
+    // MARK: - Scan Button
 
-    private var lastSyncLabel: some View {
-        Group {
-            if let lastSync = scrobbleService?.lastSyncDate {
-                Text("Synced \(lastSync.formatted(.relative(presentation: .named)))")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+    private var scanButton: some View {
+        Button {
+            Task {
+                await performSyncWithFeedback(showSpinner: true)
             }
+        } label: {
+            Text("Scan")
         }
+        .font(.headline)
+        .disabled(isSyncing)
     }
     
     // MARK: - Load User Info
@@ -127,20 +135,20 @@ struct HomeView: View {
 
     // MARK: - Sync
 
-    private func performSyncWithFeedback() async {
+    private func performSyncWithFeedback(showSpinner: Bool = false) async {
         guard isFullyConnected else { return }
 
-        print("[HomeView] Starting sync...")
-        if let result = await scrobbleService?.performSync() {
-            print("[HomeView] Sync result: scrobbledCount=\(result.scrobbledCount), error=\(String(describing: result.error))")
+        isSyncing = showSpinner
+        let result = await scrobbleService?.performSync()
+        isSyncing = false
+        
+        if let result {
             if result.scrobbledCount > 0 {
                 syncToastMessage = "Scrobbled \(result.scrobbledCount) new track\(result.scrobbledCount == 1 ? "" : "s")"
             } else {
                 syncToastMessage = "Already up to date"
             }
             showSyncToast = true
-        } else {
-            print("[HomeView] performSync returned nil")
         }
     }
 
