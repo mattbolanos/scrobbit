@@ -78,12 +78,7 @@ struct TrackRow: View {
     
     @ViewBuilder
     private var artworkView: some View {
-        if let image = artworkImage {
-            // Local UIImage from MediaPlayer
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else if let url = artworkURL {
+        if let url = artworkURL {
             // Remote URL from Last.fm
             AsyncImage(url: url) { phase in
                 switch phase {
@@ -99,6 +94,11 @@ struct TrackRow: View {
                     artworkPlaceholder
                 }
             }
+        } else if let image = artworkImage {
+            // Local UIImage from MediaPlayer
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
         } else {
             artworkPlaceholder
         }

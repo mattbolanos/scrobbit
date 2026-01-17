@@ -4,20 +4,21 @@ import SwiftData
 @main
 struct ScrobbitApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    
+
     @State private var lastFmService = LastFmService()
     @State private var appleMusicService = MusicKitService()
     @State private var scrobbleService: ScrobbleService?
     @State private var backgroundTaskManager: BackgroundTaskManager?
-    
+
     private let modelContainer: ModelContainer
-    
+
     init() {
         do {
             modelContainer = try ModelContainer(for: Track.self, LibraryCache.self)
         } catch {
             fatalError("Failed to initialize SwiftData model container: \(error)")
         }
+        BackgroundTaskManager.registerBackgroundTaskHandler()
     }
 
     var body: some Scene {
@@ -36,20 +37,19 @@ struct ScrobbitApp: App {
                             modelContext: modelContainer.mainContext
                         )
                     }
-                    
-                    // Initialize and register BackgroundTaskManager
+
+                    // Initialize BackgroundTaskManager and populate ServiceContainer
                     if backgroundTaskManager == nil {
                         backgroundTaskManager = BackgroundTaskManager(
                             lastFmService: lastFmService,
                             musicKitService: appleMusicService,
                             scrobbleServiceProvider: { [scrobbleService] in scrobbleService }
                         )
-                        backgroundTaskManager?.registerBackgroundTask()
+                        backgroundTaskManager?.populateServiceContainer()
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .background {
-                        // Schedule background refresh when app goes to background
                         backgroundTaskManager?.scheduleBackgroundRefresh()
                     }
                 }
