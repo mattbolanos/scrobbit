@@ -26,11 +26,12 @@ struct RecentlyPlayedSection: View {
                             artworkImage: track.displayArtworkImage,
                             playedAt: track.displayDate
                         )
-                            .padding(.horizontal, Theme.Spacing.md)
-                            .padding(.vertical, Theme.Spacing.sm)
-                            .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
-                            .padding(.bottom, index == tracks.count - 1 ? -Theme.Spacing.sm : 0)
-                        
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
+                        .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
+                        .padding(.bottom, index == tracks.count - 1 ? -Theme.Spacing.sm : 0)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+
                         if index < tracks.count - 1 {
                             Divider()
                         }
@@ -41,6 +42,7 @@ struct RecentlyPlayedSection: View {
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                         .fill(Color(.secondarySystemGroupedBackground))
                 )
+                .animation(Theme.Animation.standard, value: tracks.count)
             }
         }
     }

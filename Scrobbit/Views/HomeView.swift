@@ -57,6 +57,9 @@ struct HomeView: View {
                 }
             }
             .task {
+                // Initialize from cache first for instant display
+                initializeFromCache()
+                // Then fetch fresh data in background
                 await loadUserInfoIfNeeded()
                 await loadRecentScrobbles()
             }
@@ -64,7 +67,11 @@ struct HomeView: View {
                 await performSyncWithFeedback()
             }
             .sheet(isPresented: $showConnectSheet) {
-                ConnectAccountsSheet()
+                ConnectAccountsSheet(onFullyConnected: {
+                    Task { [self] in
+                        await performSyncWithFeedback()
+                    }
+                })
             }
         }
         .toast(isPresented: $showSyncToast, message: syncToastMessage)
@@ -121,17 +128,31 @@ struct HomeView: View {
         .disabled(isSyncing || isScanning)
     }
     
+    // MARK: - Cache Initialization
+
+    private func initializeFromCache() {
+        // Use cached scrobbles from service for instant display
+        if recentScrobbles.isEmpty && !lastFmService.cachedRecentScrobbles.isEmpty {
+            recentScrobbles = lastFmService.cachedRecentScrobbles
+        }
+    }
+
     // MARK: - Load User Info
 
     private func loadUserInfoIfNeeded() async {
-        guard lastFmService.isAuthenticated, lastFmService.userInfo == nil else { return }
+        guard lastFmService.isAuthenticated else { return }
 
-        isLoadingUserInfo = true
+        // Only show loading indicator if no cached data
+        let hasCachedData = lastFmService.userInfo != nil
+        if !hasCachedData {
+            isLoadingUserInfo = true
+        }
         defer { isLoadingUserInfo = false }
 
         do {
             try await lastFmService.fetchUserInfo()
         } catch {
+            // Silently fail - cached data (if any) remains displayed
         }
     }
 
@@ -151,6 +172,9 @@ struct HomeView: View {
                 syncToastMessage = "Already up to date"
             }
             showSyncToast = true
+            if result.scrobbledCount > 0 {
+                await loadRecentScrobbles()
+            }
         }
     }
 
@@ -159,13 +183,21 @@ struct HomeView: View {
     private func loadRecentScrobbles() async {
         guard lastFmService.isAuthenticated else { return }
 
-        isLoadingScrobbles = true
+        // Only show loading if no cached data
+        let hasCachedData = !recentScrobbles.isEmpty
+        if !hasCachedData {
+            isLoadingScrobbles = true
+        }
         defer { isLoadingScrobbles = false }
 
         do {
-            recentScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 30)
+            let freshScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 30)
+            // Animate the update for smooth transitions
+            withAnimation(Theme.Animation.standard) {
+                recentScrobbles = freshScrobbles
+            }
         } catch {
-            // Silently fail - empty state will be shown
+            // Silently fail - cached data remains displayed
         }
     }
 }

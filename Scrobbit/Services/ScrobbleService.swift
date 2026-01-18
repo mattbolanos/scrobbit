@@ -50,9 +50,11 @@ final class ScrobbleService {
 
     /// Performs a full sync: scrobbles new tracks and refreshes the history cache.
     /// This is the main entry point for background refresh and manual sync.
+    /// - Parameter includeNonCritical: If true, also refreshes history cache and prunes old entries.
+    ///                                  Set to false for background tasks with limited execution time.
     /// Returns the number of tracks scrobbled, or nil if sync was skipped/failed.
     @discardableResult
-    func performSync() async -> SyncResult? {
+    func performSync(includeNonCritical: Bool = true) async -> SyncResult? {
         guard !isSyncing else { return nil }
         guard lastFmService.isAuthenticated && musicKitService.isAuthorized else { return nil }
 
@@ -70,17 +72,20 @@ final class ScrobbleService {
             // Step 1: Detect and scrobble new plays from library (critical path)
             scrobbledCount = try await scrobbleNewPlays()
 
-            // Step 2: Refresh history cache in the background (non-blocking)
-            Task.detached(priority: .utility) { [weak self] in
-                try? await self?.refreshHistoryCache()
-            }
-
-            // Step 3: Prune old cache entries periodically (non-blocking)
-            if shouldPrune() {
-                Task.detached(priority: .background) { [weak self] in
-                    try? await self?.pruneOldCacheEntries()
+            // Step 2 & 3: Only run non-critical tasks when time permits (foreground)
+            if includeNonCritical {
+                // Refresh history cache in the background (non-blocking)
+                Task.detached(priority: .utility) { [weak self] in
+                    try? await self?.refreshHistoryCache()
                 }
-                lastPruneDate = Date()
+
+                // Prune old cache entries periodically (non-blocking)
+                if shouldPrune() {
+                    Task.detached(priority: .background) { [weak self] in
+                        try? await self?.pruneOldCacheEntries()
+                    }
+                    lastPruneDate = Date()
+                }
             }
 
             return SyncResult(scrobbledCount: scrobbledCount, error: nil)

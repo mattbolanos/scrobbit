@@ -1,5 +1,6 @@
 import Foundation
 import AuthenticationServices
+import BackgroundTasks
 import CryptoKit
 import UIKit
 
@@ -18,6 +19,7 @@ final class LastFmService: NSObject {
     private(set) var username: String = ""
     private(set) var isAuthenticating: Bool = false
     private(set) var userInfo: LastFmUser?
+    private(set) var cachedRecentScrobbles: [LastFmScrobble] = []
     private var sessionKey: String?
     private var webAuthSession: ASWebAuthenticationSession?
 
@@ -35,6 +37,13 @@ final class LastFmService: NSObject {
     override init() {
         super.init()
         loadStoredCredentials()
+        loadCachedData()
+    }
+
+    private func loadCachedData() {
+        guard isAuthenticated else { return }
+        userInfo = LastFmCache.loadUserInfo()
+        cachedRecentScrobbles = LastFmCache.loadRecentScrobbles() ?? []
     }
 
     @MainActor
@@ -67,22 +76,29 @@ final class LastFmService: NSObject {
 
     func signOut() {
         KeychainService.clearAll()
+        LastFmCache.clearAll()
         sessionKey = nil
         username = ""
         isAuthenticated = false
+        userInfo = nil
+        cachedRecentScrobbles = []
+
+        // Cancel any pending background refresh tasks
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: BackgroundTaskManager.scrobbleTaskIdentifier)
     }
     
     func fetchUserInfo() async throws {
         guard isAuthenticated, !username.isEmpty else {
             throw LastFmError.notAuthenticated
         }
-        
+
         let response: UserInfoResponse = try await fetch(
             method: "user.getInfo",
             params: [("user", username)]
         )
-        
+
         userInfo = response.user
+        LastFmCache.saveUserInfo(response.user)
     }
     
     // MARK: - Scrobbling
@@ -129,7 +145,7 @@ final class LastFmService: NSObject {
         guard isAuthenticated, !username.isEmpty else {
             throw LastFmError.notAuthenticated
         }
-        
+
         let response: RecentTracksResponse = try await fetch(
             method: "user.getRecentTracks",
             params: [
@@ -137,12 +153,12 @@ final class LastFmService: NSObject {
                 ("limit", String(min(limit, 200)))
             ]
         )
-        
+
         // Filter out currently playing track (no date) and map to scrobbles
-        return response.recenttracks.track.compactMap { track -> LastFmScrobble? in
+        let scrobbles = response.recenttracks.track.compactMap { track -> LastFmScrobble? in
             // Skip "now playing" tracks that don't have a date
             guard let dateInfo = track.date else { return nil }
-            
+
             return LastFmScrobble(
                 trackName: track.name,
                 artistName: track.artist.text,
@@ -152,6 +168,12 @@ final class LastFmService: NSObject {
                 lastFmURL: URL(string: track.url)
             )
         }
+
+        // Update cache
+        cachedRecentScrobbles = scrobbles
+        LastFmCache.saveRecentScrobbles(scrobbles)
+
+        return scrobbles
     }
 
     // MARK: - Private Methods
@@ -408,7 +430,7 @@ struct UserInfoResponse: Decodable {
     let user: LastFmUser
 }
 
-struct LastFmUser: Decodable {
+struct LastFmUser: Codable {
     let name: String
     let playcount: String
     let artistCount: String
@@ -533,7 +555,7 @@ private struct RecentTracksResponse: Decodable {
 // MARK: - Public Scrobble Model
 
 /// A scrobble fetched from Last.fm's API
-struct LastFmScrobble: Identifiable {
+struct LastFmScrobble: Identifiable, Codable {
     let trackName: String
     let artistName: String
     let albumName: String

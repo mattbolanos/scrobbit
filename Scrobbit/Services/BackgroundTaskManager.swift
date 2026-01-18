@@ -1,5 +1,6 @@
 import BackgroundTasks
 import Foundation
+import Network
 
 /// Manages background app refresh tasks for periodic scrobbling.
 @MainActor
@@ -8,8 +9,8 @@ final class BackgroundTaskManager {
     /// Task identifier registered in Info.plist
     nonisolated static let scrobbleTaskIdentifier = "com.scrobbit.refresh"
 
-    /// Interval between background refreshes (30 minutes)
-    private static let refreshInterval: TimeInterval = 30 * 60
+    /// Interval between background refreshes (20 minutes)
+    private static let refreshInterval: TimeInterval = 20 * 60
 
     private let lastFmService: LastFmService
     private let musicKitService: MusicKitService
@@ -44,9 +45,27 @@ final class BackgroundTaskManager {
         // Schedule the next refresh before we start work
         scheduleNextRefresh()
 
-        // Set up expiration handler
+        // Set up expiration handler - reschedule to maintain sync chain
         task.expirationHandler = {
+            scheduleNextRefresh()
             task.setTaskCompleted(success: false)
+        }
+
+        // Quick network check - skip sync if offline to save execution time
+        let isConnected = await withCheckedContinuation { continuation in
+            let monitor = NWPathMonitor()
+            let queue = DispatchQueue(label: "com.scrobbit.networkcheck")
+            monitor.pathUpdateHandler = { path in
+                monitor.cancel()
+                continuation.resume(returning: path.status == .satisfied)
+            }
+            monitor.start(queue: queue)
+        }
+
+        guard isConnected else {
+            // No network - complete successfully (not an error, just nothing to do now)
+            task.setTaskCompleted(success: true)
+            return
         }
 
         let container = ServiceContainer.shared
@@ -69,7 +88,7 @@ final class BackgroundTaskManager {
             return
         }
 
-        await scrobbleService.performSync()
+        await scrobbleService.performSync(includeNonCritical: false)
 
         let success = scrobbleService.lastSyncError == nil
         task.setTaskCompleted(success: success)

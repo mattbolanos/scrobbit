@@ -5,7 +5,10 @@ struct ConnectAccountsSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
-    
+
+    /// Called when both accounts become connected, before dismissing
+    var onFullyConnected: (() -> Void)?
+
     private var isFullyConnected: Bool {
         lastFmService.isAuthenticated && appleMusicService.isAuthorized
     }
@@ -61,6 +64,7 @@ struct ConnectAccountsSheet: View {
             Task {
                 try? await lastFmService.authenticate()
                 if lastFmService.isAuthenticated && appleMusicService.isAuthorized {
+                    onFullyConnected?()
                     dismiss()
                 }
             }
@@ -90,6 +94,7 @@ struct ConnectAccountsSheet: View {
             Task {
                 await appleMusicService.requestAuthorization()
                 if lastFmService.isAuthenticated && appleMusicService.isAuthorized {
+                    onFullyConnected?()
                     dismiss()
                 }
             }
