@@ -169,7 +169,7 @@ struct HomeView: View {
             if result.scrobbledCount > 0 {
                 syncToastMessage = "Scrobbled \(result.scrobbledCount) new track\(result.scrobbledCount == 1 ? "" : "s")"
             } else {
-                syncToastMessage = "Already up to date"
+                syncToastMessage = "No new scrobbles found"
             }
             showSyncToast = true
             if result.scrobbledCount > 0 {

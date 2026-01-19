@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -6,6 +7,7 @@ struct SettingsView: View {
     @Environment(MusicKitService.self) var appleMusicService
 
     @State private var lastSyncEntry: BackgroundTaskLogEntry?
+    @State private var backgroundRefreshStatus: UIBackgroundRefreshStatus = .available
 
     var body: some View {
         NavigationStack {
@@ -74,7 +76,7 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                                Text("Background Sync")
+                                Text("Sync History")
                                     .font(.body)
 
                                 if let entry = lastSyncEntry {
@@ -104,8 +106,50 @@ struct SettingsView: View {
                             Spacer()
                         }
                     }
+
+                    // Background App Refresh Status
+                    HStack {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                            Text("Background App Refresh")
+                                .font(.body)
+
+                            Text(backgroundRefreshStatusText)
+                                .font(.caption)
+                                .foregroundStyle(backgroundRefreshStatus == .available ? .secondary : .primary)
+                        }
+
+                        Spacer()
+
+                        if backgroundRefreshStatus == .available {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Button {
+                                openSettings()
+                            } label: {
+                                Text("Open Settings")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                        }
+                    }
+
+                    if backgroundRefreshStatus != .available {
+                        HStack(spacing: Theme.Spacing.sm) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+
+                            Text("Background App Refresh must be enabled for Scrobbit to automatically sync your plays when you're not using the app.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, Theme.Spacing.xs)
+                    }
                 } header: {
-                    Text("Sync Status")
+                    Text("Background Sync")
                 }
             }
             .listStyle(.insetGrouped)
@@ -114,7 +158,30 @@ struct SettingsView: View {
             .contentMargins(.top, Theme.Spacing.md)
             .onAppear {
                 lastSyncEntry = BackgroundTaskLog.shared.lastEntry
+                backgroundRefreshStatus = UIApplication.shared.backgroundRefreshStatus
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                backgroundRefreshStatus = UIApplication.shared.backgroundRefreshStatus
+            }
+        }
+    }
+
+    private var backgroundRefreshStatusText: String {
+        switch backgroundRefreshStatus {
+        case .available:
+            return "Enabled"
+        case .denied:
+            return "Disabled for Scrobbit"
+        case .restricted:
+            return "Restricted on this device"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+
+    private func openSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
         }
     }
 }
