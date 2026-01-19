@@ -5,52 +5,28 @@ import SwiftData
 struct ScrobbitApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var lastFmService = LastFmService()
-    @State private var appleMusicService = MusicKitService()
-    @State private var scrobbleService: ScrobbleService?
-    @State private var backgroundTaskManager: BackgroundTaskManager?
-
-    private let modelContainer: ModelContainer
+    /// Shared service container with lazy initialization
+    private let container = ServiceContainer.shared
 
     init() {
-        do {
-            modelContainer = try ModelContainer(for: Track.self, LibraryCache.self)
-        } catch {
-            fatalError("Failed to initialize SwiftData model container: \(error)")
-        }
+        // Register background task handler before app finishes launching
         BackgroundTaskManager.registerBackgroundTaskHandler()
     }
 
     var body: some Scene {
         WindowGroup {
             MainTabView()
-                .environment(lastFmService)
-                .environment(appleMusicService)
-                .environment(\.scrobbleService, scrobbleService)
-                .modelContainer(modelContainer)
-                .task {
-                    // Initialize ScrobbleService with modelContext
-                    if scrobbleService == nil {
-                        scrobbleService = ScrobbleService(
-                            lastFmService: lastFmService,
-                            musicKitService: appleMusicService,
-                            modelContext: modelContainer.mainContext
-                        )
-                    }
-
-                    // Initialize BackgroundTaskManager and populate ServiceContainer
-                    if backgroundTaskManager == nil {
-                        backgroundTaskManager = BackgroundTaskManager(
-                            lastFmService: lastFmService,
-                            musicKitService: appleMusicService,
-                            scrobbleServiceProvider: { [scrobbleService] in scrobbleService }
-                        )
-                        backgroundTaskManager?.populateServiceContainer()
-                    }
+                .environment(container.lastFmService)
+                .environment(container.musicKitService)
+                .environment(\.scrobbleService, container.scrobbleService)
+                .modelContainer(container.modelContainer)
+                .onAppear {
+                    // Schedule background refresh on app launch (not just backgrounding)
+                    BackgroundTaskManager.scheduleBackgroundRefresh()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .background {
-                        backgroundTaskManager?.scheduleBackgroundRefresh()
+                        BackgroundTaskManager.scheduleBackgroundRefresh()
                     }
                 }
         }

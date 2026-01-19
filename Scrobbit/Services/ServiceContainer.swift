@@ -1,15 +1,67 @@
 import Foundation
+import SwiftData
 
-/// A container for services that need to be accessed by background tasks.
-/// This allows background task handlers to be registered early (in App.init)
-/// while services are initialized later.
+/// A container for services that lazily initializes on first access.
+/// This ensures services are always available, whether the app is launched
+/// in foreground or woken for a background task.
 @MainActor
 final class ServiceContainer {
     static let shared = ServiceContainer()
 
-    var lastFmService: LastFmService?
-    var musicKitService: MusicKitService?
-    var scrobbleService: ScrobbleService?
+    // MARK: - Model Container
+
+    private var _modelContainer: ModelContainer?
+
+    var modelContainer: ModelContainer {
+        if _modelContainer == nil {
+            do {
+                _modelContainer = try ModelContainer(for: Track.self, LibraryCache.self)
+            } catch {
+                fatalError("Failed to initialize SwiftData model container: \(error)")
+            }
+        }
+        return _modelContainer!
+    }
+
+    // MARK: - Services (Lazy Initialized)
+
+    private var _lastFmService: LastFmService?
+    private var _musicKitService: MusicKitService?
+    private var _scrobbleService: ScrobbleService?
+
+    var lastFmService: LastFmService {
+        if _lastFmService == nil {
+            _lastFmService = LastFmService()
+        }
+        return _lastFmService!
+    }
+
+    var musicKitService: MusicKitService {
+        if _musicKitService == nil {
+            _musicKitService = MusicKitService()
+        }
+        return _musicKitService!
+    }
+
+    var scrobbleService: ScrobbleService {
+        if _scrobbleService == nil {
+            _scrobbleService = ScrobbleService(
+                lastFmService: lastFmService,
+                musicKitService: musicKitService,
+                modelContext: modelContainer.mainContext
+            )
+        }
+        return _scrobbleService!
+    }
 
     private init() {}
+
+    // MARK: - Reset (for sign-out)
+
+    /// Resets all services. Call this when the user signs out.
+    func reset() {
+        _lastFmService = nil
+        _musicKitService = nil
+        _scrobbleService = nil
+    }
 }
