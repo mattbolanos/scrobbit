@@ -2,56 +2,62 @@ import BackgroundTasks
 import Foundation
 import Network
 import os.log
+import UIKit
 
 /// Manages background app refresh tasks for periodic scrobbling.
-/// This is a stateless enum - all state comes from ServiceContainer.shared.
 enum BackgroundTaskManager {
 
     /// Task identifier registered in Info.plist
     static let scrobbleTaskIdentifier = "com.scrobbit.refresh"
 
-    /// Interval between background refreshes (30 minutes)
-    private static let refreshInterval: TimeInterval = 30 * 60
+    /// Interval between background refreshes (Set to minimum to let iOS decide)
+    private static let refreshInterval: TimeInterval = UIApplication.backgroundFetchIntervalMinimum
 
     private static let logger = Logger(subsystem: "com.scrobbit", category: "BackgroundTask")
 
     // MARK: - Registration
 
-    /// Registers the background task handler with BGTaskScheduler.
-    /// Must be called in App.init() before the app finishes launching.
+    /// Registers the background task handler. Call this in App.init().
     static func registerBackgroundTaskHandler() {
-        BGTaskScheduler.shared.register(
+        let success = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: scrobbleTaskIdentifier,
             using: nil
         ) { task in
-            Task { @MainActor in
-                await handleBackgroundTask(task as! BGAppRefreshTask)
+            // Downcast to BGAppRefreshTask
+            guard let refreshTask = task as? BGAppRefreshTask else { return }
+            
+            // Start the async work immediately without forcing MainActor
+            Task {
+                await handleBackgroundTask(refreshTask)
             }
         }
-        logger.info("Registered background task handler")
+        
+        if success {
+            logger.info("Registered background task handler")
+        } else {
+            logger.error("Failed to register background task handler")
+        }
     }
 
     // MARK: - Task Handler
 
-    /// Handles the background task using services from ServiceContainer.
-    @MainActor
+    /// Handles the background task. Note: Removed @MainActor for performance.
     private static func handleBackgroundTask(_ task: BGAppRefreshTask) async {
         logger.info("Background task started")
 
-        // Schedule the next refresh before we start work
+        // 1. Immediately schedule the next window
         scheduleBackgroundRefresh()
 
-        // Set up expiration handler
+        // 2. Setup expiration handler
         task.expirationHandler = {
-            logger.warning("Background task expired")
+            logger.warning("Background task expired by system")
+            // Attempt to record expiration if Log is thread-safe
             BackgroundTaskLog.shared.record(event: .expired)
-            scheduleBackgroundRefresh()
             task.setTaskCompleted(success: false)
         }
 
-        // Quick network check - skip sync if offline to save execution time
+        // 3. Perform network check
         let isConnected = await checkNetworkConnectivity()
-
         guard isConnected else {
             logger.info("No network - skipping sync")
             BackgroundTaskLog.shared.record(event: .skippedNoNetwork)
@@ -59,64 +65,62 @@ enum BackgroundTaskManager {
             return
         }
 
-        // Access services from the lazy-initializing container
-        let container = ServiceContainer.shared
-        let lastFmService = container.lastFmService
-        let musicKitService = container.musicKitService
+        // 4. Perform Sync
+        do {
+            let container = ServiceContainer.shared
+            
+            // If authentication checks must be on MainActor, wrap ONLY those checks
+            let (isAuthed, isMusicAuthed) = await MainActor.run {
+                return (container.lastFmService.isAuthenticated, 
+                        container.musicKitService.isAuthorized)
+            }
 
-        // Only sync if both services are authenticated
-        guard lastFmService.isAuthenticated && musicKitService.isAuthorized else {
-            logger.info("Not authenticated - skipping sync")
-            BackgroundTaskLog.shared.record(event: .skippedNotAuthenticated)
-            task.setTaskCompleted(success: true)
-            return
+            guard isAuthed && isMusicAuthed else {
+                logger.info("Not authenticated - skipping sync")
+                BackgroundTaskLog.shared.record(event: .skippedNotAuthenticated)
+                task.setTaskCompleted(success: true)
+                return
+            }
+
+            // Execute the scrobble sync
+            let result = await container.scrobbleService.performSync(includeNonCritical: false)
+            let scrobblesCount = result?.scrobbledCount ?? 0
+            let success = result?.error == nil
+
+            if success {
+                logger.info("Background sync completed: \(scrobblesCount) scrobbles")
+                BackgroundTaskLog.shared.record(event: .completed, scrobblesCount: scrobblesCount)
+            } else {
+                let errorMsg = result?.error?.localizedDescription ?? "unknown error"
+                logger.error("Background sync failed: \(errorMsg)")
+                BackgroundTaskLog.shared.record(event: .failed, scrobblesCount: scrobblesCount, message: errorMsg)
+            }
+
+            task.setTaskCompleted(success: success)
         }
-
-        // Perform the sync
-        let scrobbleService = container.scrobbleService
-        let result = await scrobbleService.performSync(includeNonCritical: false)
-
-        let scrobblesCount = result?.scrobbledCount ?? 0
-        let success = result?.error == nil
-
-        if success {
-            logger.info("Background sync completed: \(scrobblesCount) scrobbles")
-            BackgroundTaskLog.shared.record(
-                event: .completed,
-                scrobblesCount: scrobblesCount
-            )
-        } else {
-            logger.error("Background sync failed: \(result?.error?.localizedDescription ?? "unknown error")")
-            BackgroundTaskLog.shared.record(
-                event: .failed,
-                scrobblesCount: scrobblesCount,
-                message: result?.error?.localizedDescription
-            )
-        }
-
-        task.setTaskCompleted(success: success)
     }
 
     // MARK: - Scheduling
 
     /// Schedules the next background refresh.
-    /// Call this when the app goes to background or after a successful sync.
     static func scheduleBackgroundRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: scrobbleTaskIdentifier)
+        
+        // Suggest the earliest date. Using refreshInterval (min) increases 
+        // the frequency iOS might grant you.
         request.earliestBeginDate = Date(timeIntervalSinceNow: refreshInterval)
 
         do {
             try BGTaskScheduler.shared.submit(request)
-            logger.info("Scheduled background refresh for \(refreshInterval / 60) minutes from now")
+            logger.info("Scheduled background refresh request")
         } catch {
-            logger.error("Failed to schedule background refresh: \(error.localizedDescription)")
+            logger.error("Could not schedule background refresh: \(error)")
         }
     }
 
-    /// Cancels any pending background refresh tasks.
     static func cancelPendingTasks() {
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: scrobbleTaskIdentifier)
-        logger.info("Cancelled pending background tasks")
+        logger.info("Cancelled pending tasks")
     }
 
     // MARK: - Network Check
