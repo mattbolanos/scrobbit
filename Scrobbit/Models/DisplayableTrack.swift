@@ -1,8 +1,7 @@
 import Foundation
 import UIKit
 
-/// Protocol for tracks that can be displayed in the RecentlyPlayedSection.
-/// Allows both LibraryCache and LastFmScrobble to be rendered uniformly.
+
 protocol DisplayableTrack {
     var displayTitle: String { get }
     var displayArtist: String { get }

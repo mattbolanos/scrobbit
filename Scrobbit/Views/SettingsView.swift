@@ -92,7 +92,7 @@ struct SettingsView: View {
                                         Text("·")
                                             .foregroundStyle(.tertiary)
 
-                                        Text(entry.timestamp, style: .relative)
+                                        Text(entry.timestamp, format: .dateTime.month().day().hour().minute())
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
