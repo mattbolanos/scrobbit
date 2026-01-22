@@ -15,23 +15,20 @@ struct HomeView: View {
     @State private var isLoadingUserInfo = false
     @State private var showConnectSheet = false
 
-    // Sync UI state
-    @State private var showSyncToast = false
-    @State private var syncToastMessage = ""
-    @State private var isSyncing = false
-    @State private var isScanning = false
-    
+    // Sync state
+    @State private var syncState: SyncState = .idle
+
     private var connectedCount: Int {
         var count = 0
         if lastFmService.isAuthenticated { count += 1 }
         if appleMusicService.isAuthorized { count += 1 }
         return count
     }
-    
+
     private var isFullyConnected: Bool {
         connectedCount == 2
     }
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -53,19 +50,16 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isFullyConnected {
-                        scanButton
+                        SyncButton(state: $syncState) {
+                            await performSync()
+                        }
                     }
                 }
             }
             .task {
-                // Initialize from cache first for instant display
                 initializeFromCache()
-                // Then fetch fresh data in background
                 await loadUserInfoIfNeeded()
                 await loadRecentScrobbles()
-            }
-            .refreshable {
-                await performSyncWithFeedback()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
@@ -76,21 +70,17 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showConnectSheet) {
                 ConnectAccountsSheet(onFullyConnected: {
-                    Task { [self] in
-                        await performSyncWithFeedback()
-                    }
+                    Task { await performSync() }
                 })
             }
         }
-        .toast(isPresented: $showSyncToast, message: syncToastMessage)
     }
-    
+
     // MARK: - Recent Tracks Section
-    
+
     @ViewBuilder
     private var recentTracksSection: some View {
         if lastFmService.isAuthenticated {
-            // Fallback to Last.fm scrobbles
             RecentlyPlayedSection(
                 tracks: recentScrobbles,
                 title: "Latest from Last.fm",
@@ -106,7 +96,7 @@ struct HomeView: View {
             )
         }
     }
-    
+
     @ViewBuilder
     private var lastFmStatsGrid: some View {
         if let userInfo = lastFmService.userInfo {
@@ -115,31 +105,10 @@ struct HomeView: View {
             StatsGridSkeleton()
         }
     }
-    
-    // MARK: - Scan Button
 
-    private var scanButton: some View {
-        Button {
-            Task {
-                isScanning = true
-                await performSyncWithFeedback()
-                isScanning = false
-            }
-        } label: {
-            if isScanning {
-                ProgressView()
-            } else {
-                Text("Sync")
-            }
-        }
-        .font(.headline)
-        .disabled(isSyncing || isScanning || showSyncToast)
-    }
-    
     // MARK: - Cache Initialization
 
     private func initializeFromCache() {
-        // Use cached scrobbles from service for instant display
         if recentScrobbles.isEmpty && !lastFmService.cachedRecentScrobbles.isEmpty {
             recentScrobbles = lastFmService.cachedRecentScrobbles
         }
@@ -150,7 +119,6 @@ struct HomeView: View {
     private func loadUserInfoIfNeeded() async {
         guard lastFmService.isAuthenticated else { return }
 
-        // Only show loading indicator if no cached data
         let hasCachedData = lastFmService.userInfo != nil
         if !hasCachedData {
             isLoadingUserInfo = true
@@ -160,39 +128,38 @@ struct HomeView: View {
         do {
             try await lastFmService.fetchUserInfo()
         } catch {
-            // Silently fail - cached data (if any) remains displayed
+            // Silently fail - cached data remains displayed
         }
     }
 
     // MARK: - Sync
 
-    private func performSyncWithFeedback() async {
+    private func performSync() async {
         guard isFullyConnected else { return }
+        guard syncState == .idle else { return }
 
-        isSyncing = true
+        syncState = .syncing
+
         let result = await scrobbleService?.performSync()
-        isSyncing = false
-        
+
         if let result {
-            if result.scrobbledCount > 0 {
-                syncToastMessage = "Scrobbled \(result.scrobbledCount) new track\(result.scrobbledCount == 1 ? "" : "s")"
-            } else {
-                syncToastMessage = "No new scrobbles"
-            }
-            showSyncToast = true
-            if result.scrobbledCount > 0 {
+            if let error = result.error {
+                syncState = .error(message: error.localizedDescription)
+            } else if result.scrobbledCount > 0 {
+                syncState = .success(count: result.scrobbledCount)
                 await loadRecentScrobbles()
+            } else {
+                syncState = .empty
             }
+        } else {
+            syncState = .idle
         }
     }
 
     // MARK: - Load Recent Scrobbles
 
-    /// Lightweight background refresh when app becomes active - no loading indicators
     private func refreshScrobblesInBackground() async {
         guard lastFmService.isAuthenticated else { return }
-
-        print("Refreshing scrobbles in background")
 
         do {
             let freshScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 25)
@@ -207,7 +174,6 @@ struct HomeView: View {
     private func loadRecentScrobbles() async {
         guard lastFmService.isAuthenticated else { return }
 
-        // Only show loading if no cached data
         let hasCachedData = !recentScrobbles.isEmpty
         if !hasCachedData {
             isLoadingScrobbles = true
@@ -216,7 +182,6 @@ struct HomeView: View {
 
         do {
             let freshScrobbles = try await lastFmService.fetchRecentScrobbles(limit: 25)
-            // Animate the update for smooth transitions
             withAnimation(Theme.Animation.standard) {
                 recentScrobbles = freshScrobbles
             }

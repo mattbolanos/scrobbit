@@ -6,7 +6,7 @@ struct SettingsView: View {
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
 
-    @State private var lastSyncEntry: BackgroundTaskLogEntry?
+    @State private var lastSyncEntry: SyncLogEntry?
     @State private var backgroundRefreshStatus: UIBackgroundRefreshStatus = .available
 
     var body: some View {
@@ -71,39 +71,15 @@ struct SettingsView: View {
 
                 // MARK: - Background Sync Section
                 Section {
-                    NavigationLink {
-                        BackgroundSyncLogView()
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                                Text("Sync History")
-                                    .font(.body)
-
-                                if let entry = lastSyncEntry {
-                                    HStack(spacing: Theme.Spacing.xs) {
-                                        Image(systemName: entry.event.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                            .foregroundStyle(entry.event.isSuccess ? .green : .red)
-                                            .font(.caption)
-
-                                        Text(entry.event.displayText)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-
-                                        Text("·")
-                                            .foregroundStyle(.tertiary)
-
-                                        Text(entry.timestamp, format: .dateTime.month().day().hour().minute())
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                } else {
-                                    Text("No syncs yet")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                    Group {
+                        if lastSyncEntry != nil {
+                            NavigationLink {
+                                SyncLogView()
+                            } label: {
+                                syncHistoryLabel
                             }
-
-                            Spacer()
+                        } else {
+                            syncHistoryLabel
                         }
                     }
 
@@ -157,7 +133,7 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.large)
             .contentMargins(.top, Theme.Spacing.md)
             .onAppear {
-                lastSyncEntry = BackgroundTaskLog.shared.lastEntry
+                lastSyncEntry = SyncLog.shared.lastEntry
                 backgroundRefreshStatus = UIApplication.shared.backgroundRefreshStatus
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
@@ -176,6 +152,41 @@ struct SettingsView: View {
             return "Restricted on this device"
         @unknown default:
             return "Unknown"
+        }
+    }
+
+    @ViewBuilder
+    private var syncHistoryLabel: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+                Text("Sync History")
+                    .font(.body)
+
+                if let entry = lastSyncEntry {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        Image(systemName: entry.event.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(entry.event.isSuccess ? .green : .red)
+                            .font(.caption)
+
+                        Text(entry.event.displayText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+
+                        Text(entry.timestamp, format: .dateTime.month().day().hour().minute())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("No syncs yet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
         }
     }
 

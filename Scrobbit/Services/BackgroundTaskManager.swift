@@ -51,8 +51,6 @@ enum BackgroundTaskManager {
         // 2. Setup expiration handler
         task.expirationHandler = {
             logger.warning("Background task expired by system")
-            // Attempt to record expiration if Log is thread-safe
-            BackgroundTaskLog.shared.record(event: .expired)
             task.setTaskCompleted(success: false)
         }
 
@@ -60,44 +58,38 @@ enum BackgroundTaskManager {
         let isConnected = await checkNetworkConnectivity()
         guard isConnected else {
             logger.info("No network - skipping sync")
-            BackgroundTaskLog.shared.record(event: .skippedNoNetwork)
             task.setTaskCompleted(success: true)
             return
         }
 
         // 4. Perform Sync
-        do {
-            let container = ServiceContainer.shared
-            
-            // If authentication checks must be on MainActor, wrap ONLY those checks
-            let (isAuthed, isMusicAuthed) = await MainActor.run {
-                return (container.lastFmService.isAuthenticated, 
-                        container.musicKitService.isAuthorized)
-            }
+        let container = ServiceContainer.shared
 
-            guard isAuthed && isMusicAuthed else {
-                logger.info("Not authenticated - skipping sync")
-                BackgroundTaskLog.shared.record(event: .skippedNotAuthenticated)
-                task.setTaskCompleted(success: true)
-                return
-            }
-
-            // Execute the scrobble sync
-            let result = await container.scrobbleService.performSync(includeNonCritical: false)
-            let scrobblesCount = result?.scrobbledCount ?? 0
-            let success = result?.error == nil
-
-            if success {
-                logger.info("Background sync completed: \(scrobblesCount) scrobbles")
-                BackgroundTaskLog.shared.record(event: .completed, scrobblesCount: scrobblesCount)
-            } else {
-                let errorMsg = result?.error?.localizedDescription ?? "unknown error"
-                logger.error("Background sync failed: \(errorMsg)")
-                BackgroundTaskLog.shared.record(event: .failed, scrobblesCount: scrobblesCount, message: errorMsg)
-            }
-
-            task.setTaskCompleted(success: success)
+        // If authentication checks must be on MainActor, wrap ONLY those checks
+        let (isAuthed, isMusicAuthed) = await MainActor.run {
+            return (container.lastFmService.isAuthenticated,
+                    container.musicKitService.isAuthorized)
         }
+
+        guard isAuthed && isMusicAuthed else {
+            logger.info("Not authenticated - skipping sync")
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        // Execute the scrobble sync (logging handled by ScrobbleService)
+        let result = await container.scrobbleService.performSync(includeNonCritical: false, source: .background)
+        let scrobblesCount = result?.scrobbledCount ?? 0
+        let success = result?.error == nil
+
+        if success {
+            logger.info("Background sync completed: \(scrobblesCount) scrobbles")
+        } else {
+            let errorMsg = result?.error?.localizedDescription ?? "unknown error"
+            logger.error("Background sync failed: \(errorMsg)")
+        }
+
+        task.setTaskCompleted(success: success)
     }
 
     // MARK: - Scheduling
