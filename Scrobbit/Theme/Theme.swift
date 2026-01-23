@@ -116,18 +116,23 @@ enum Theme {
     }
     
     // MARK: - Animation
-    
+
     enum Animation {
+        /// Quick spring animation for button interactions (0.25s, bounce: 0.1)
+        static var quick: SwiftUI.Animation {
+            .spring(duration: 0.25, bounce: 0.1)
+        }
+
         /// Standard spring animation (0.6s, bounce: 0.3)
         static var standard: SwiftUI.Animation {
             .spring(duration: 0.6, bounce: 0.3)
         }
-        
+
         /// Lively spring animation with more bounce (0.6s, bounce: 0.4)
         static var lively: SwiftUI.Animation {
             .spring(duration: 0.6, bounce: 0.4)
         }
-        
+
         /// Number counting animation (0.8s, bounce: 0.3)
         static var numberCount: SwiftUI.Animation {
             .spring(duration: 0.8, bounce: 0.3)

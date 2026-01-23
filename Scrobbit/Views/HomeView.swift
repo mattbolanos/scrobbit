@@ -1,6 +1,13 @@
 import SwiftUI
 import SwiftData
 
+private enum SyncStatus {
+    case idle
+    case syncing
+    case success
+    case failure
+}
+
 struct HomeView: View {
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
@@ -16,7 +23,7 @@ struct HomeView: View {
     @State private var showConnectSheet = false
 
     // Sync state
-    @State private var syncState: SyncState = .idle
+    @State private var syncStatus: SyncStatus = .idle
 
     private var connectedCount: Int {
         var count = 0
@@ -43,16 +50,17 @@ struct HomeView: View {
                         lastFmStatsGrid
                     }
 
+
                     recentTracksSection
                 }
                 .padding()
             }
+            .navigationTitle("Scrobbit")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isFullyConnected {
-                        SyncButton(state: $syncState) {
-                            await performSync()
-                        }
+                        syncButton
                     }
                 }
             }
@@ -74,6 +82,36 @@ struct HomeView: View {
                 })
             }
         }
+    }
+
+    private var syncButton: some View {
+        Button {
+            guard syncStatus == .idle else { return }
+            Task {
+                syncStatus = .syncing
+                let success = await performSync()
+                syncStatus = success ? .success : .failure
+                
+                try? await Task.sleep(for: .seconds(1.5))
+                syncStatus = .idle
+            }
+        } label: {
+            Group {
+                switch syncStatus {
+                case .idle:
+                    Image(systemName: "arrow.trianglehead.2.counterclockwise")
+                case .syncing:
+                    ProgressView()
+                case .success:
+                    Image(systemName: "checkmark")
+                    .foregroundStyle(Theme.Colors.success)
+                case .failure:
+                    Image(systemName: "xmark")
+                }
+            }
+            .contentTransition(.symbolEffect(.replace))
+        }
+        .disabled(syncStatus != .idle)
     }
 
     // MARK: - Recent Tracks Section
@@ -134,26 +172,21 @@ struct HomeView: View {
 
     // MARK: - Sync
 
-    private func performSync() async {
-        guard isFullyConnected else { return }
-        guard syncState == .idle else { return }
-
-        syncState = .syncing
+    @discardableResult
+    private func performSync() async -> Bool {
+        guard isFullyConnected else { return false }
 
         let result = await scrobbleService?.performSync()
 
         if let result {
-            if let error = result.error {
-                syncState = .error(message: error.localizedDescription)
-            } else if result.scrobbledCount > 0 {
-                syncState = .success(count: result.scrobbledCount)
-                await loadRecentScrobbles()
+            if result.error != nil {
+                return false
             } else {
-                syncState = .empty
+                await loadRecentScrobbles()
+                return true
             }
-        } else {
-            syncState = .idle
         }
+        return false
     }
 
     // MARK: - Load Recent Scrobbles
