@@ -104,9 +104,10 @@ struct HomeView: View {
                     ProgressView()
                 case .success:
                     Image(systemName: "checkmark")
-                    .foregroundStyle(Theme.Colors.success)
+                        .foregroundStyle(Theme.Colors.success)
                 case .failure:
                     Image(systemName: "xmark")
+                        .foregroundStyle(.red)
                 }
             }
             .contentTransition(.symbolEffect(.replace))
