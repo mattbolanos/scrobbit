@@ -50,13 +50,13 @@ struct HomeView: View {
                         lastFmStatsGrid
                     }
 
-
                     recentTracksSection
                 }
                 .padding()
             }
             .navigationTitle("Scrobbit")
             .navigationBarTitleDisplayMode(.large)
+            .modifier(SyncSubtitleModifier(lastSyncDate: scrobbleService.lastSyncDate))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if isFullyConnected {
@@ -221,6 +221,48 @@ struct HomeView: View {
             }
         } catch {
             // Silently fail - cached data remains displayed
+        }
+    }
+}
+
+// MARK: - Sync Subtitle Modifier
+
+private struct SyncSubtitleModifier: ViewModifier {
+    let lastSyncDate: Date?
+
+    private var subtitleText: String {
+        guard let lastSync = lastSyncDate else {
+            return "Play some music to get started"
+        }
+
+        let secondsAgo = Date().timeIntervalSince(lastSync)
+        if secondsAgo < 60 {
+            return "Last synced just now"
+        }
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return "Last synced \(formatter.localizedString(for: lastSync, relativeTo: .now))"
+    }
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+                .navigationSubtitle(Text(subtitleText))
+                .animation(.default, value: lastSyncDate)
+        } else {
+            content
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    HStack {
+                        Text(subtitleText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, Theme.Spacing.xs)
+                }
+                .animation(Theme.Animation.quick, value: lastSyncDate)
         }
     }
 }

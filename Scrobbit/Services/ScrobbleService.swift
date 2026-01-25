@@ -28,9 +28,17 @@ final class ScrobbleService {
     private let musicKitService: MusicKitService
     private let modelContext: ModelContext
 
+    private static let lastSyncDateKey = "lastSyncDate"
+
     private(set) var isSyncing: Bool = false
     private(set) var lastSyncError: Error?
-    private(set) var lastSyncDate: Date?
+    private(set) var lastSyncDate: Date? {
+        didSet {
+            if let date = lastSyncDate {
+                UserDefaults.standard.set(date, forKey: Self.lastSyncDateKey)
+            }
+        }
+    }
     private var lastPruneDate: Date?
 
     /// Pending scrobbles waiting to be sent to Last.fm (for UI display)
@@ -44,6 +52,7 @@ final class ScrobbleService {
         self.lastFmService = lastFmService
         self.musicKitService = musicKitService
         self.modelContext = modelContext
+        self.lastSyncDate = UserDefaults.standard.object(forKey: Self.lastSyncDateKey) as? Date
     }
     
     // MARK: - Sync Operations
@@ -337,12 +346,6 @@ final class ScrobbleService {
     /// Clears the library cache (forces re-sync from scratch on next sync)
     func clearLibraryCache() throws {
         try modelContext.delete(model: LibraryCache.self)
-        try modelContext.save()
-    }
-    
-    /// Clears the local history cache (Last.fm display cache).
-    func clearHistoryCache() throws {
-        try modelContext.delete(model: Track.self)
         try modelContext.save()
     }
 }
