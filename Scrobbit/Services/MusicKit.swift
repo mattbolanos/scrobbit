@@ -66,24 +66,6 @@ final class MusicKitService {
     func disconnect() {
         openSettings()
     }
-
-    // MARK: - Fetching recently played songs from Apple Music
-    func fetchRecentlyPlayed() async throws -> [Track] {
-        guard isAuthorized else {
-            throw MusicKitError.notAuthorized
-        }
-        
-        let request = MusicRecentlyPlayedRequest<Song>()
-        let response = try await request.response()
-        return response.items.compactMap { song -> Track? in
-            // Filter out songs without valid identifiers (local files, etc.)
-            guard !song.id.rawValue.isEmpty else {
-                return nil
-            }
-            
-            return Track(from: song)
-        }
-    }
     
     // MARK: - MediaPlayer History
     func fetchLastPlayedSongsFromMediaPlayer(limit: Int = 200) async throws -> (
