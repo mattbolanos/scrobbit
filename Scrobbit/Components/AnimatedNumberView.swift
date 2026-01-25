@@ -3,6 +3,7 @@ import SwiftUI
 struct AnimatedNumberView: View {
     let value: Int
     let font: Font
+    var color: Color = .primary
     var isSkeleton: Bool = false
 
     @State private var displayedValue: Int = 0
@@ -18,7 +19,7 @@ struct AnimatedNumberView: View {
             Text(displayedValue.formatted())
                 .font(font)
                 .fontWeight(.bold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(color)
                 .onChange(of: value, initial: true) { _, newValue in
                     animateToValue(newValue)
                 }

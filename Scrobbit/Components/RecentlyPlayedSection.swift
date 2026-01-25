@@ -34,14 +34,12 @@ struct RecentlyPlayedSection: View {
 
                         if index < tracks.count - 1 {
                             Divider()
+                                .padding(.leading, Theme.Size.artwork + Theme.Spacing.md * 2)
                         }
                     }
                 }
                 .padding(.vertical, Theme.Spacing.sm)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                )
+                .neutralCardStyle()
                 .animation(Theme.Animation.standard, value: tracks.count)
             }
         }
@@ -54,19 +52,19 @@ struct RecentlyPlayedSection: View {
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
                         .fill(Color(.systemGray5))
                         .frame(width: Theme.Size.artwork, height: Theme.Size.artwork)
-                    
+
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         RoundedRectangle(cornerRadius: Theme.CornerRadius.sm / 2, style: .continuous)
                             .fill(Color(.systemGray5))
                             .frame(width: 140, height: 14)
-                        
+
                         RoundedRectangle(cornerRadius: Theme.CornerRadius.sm / 2, style: .continuous)
                             .fill(Color(.systemGray6))
                             .frame(width: 100, height: 12)
                     }
-                    
+
                     Spacer()
-                    
+
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.sm / 2, style: .continuous)
                         .fill(Color(.systemGray6))
                         .frame(width: 32, height: 12)
@@ -75,17 +73,15 @@ struct RecentlyPlayedSection: View {
                 .padding(.vertical, Theme.Spacing.sm)
                 .padding(.top, index == 0 ? -Theme.Spacing.sm : 0)
                 .padding(.bottom, index == 4 ? -Theme.Spacing.sm : 0)
-                
+
                 if index < 4 {
                     Divider()
+                        .padding(.leading, Theme.Size.artwork + Theme.Spacing.md * 2)
                 }
             }
         }
         .padding(.vertical, Theme.Spacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .neutralCardStyle()
         .shimmering()
     }
     
@@ -94,21 +90,18 @@ struct RecentlyPlayedSection: View {
             Image(systemName: "music.note.list")
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
-            
+
             Text(emptyMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            
+
             Text("Your recently played tracks will appear here")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 140)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .neutralCardStyle()
     }
 }
 

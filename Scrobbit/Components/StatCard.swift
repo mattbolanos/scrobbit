@@ -6,32 +6,35 @@ struct StatCard: View {
     let icon: String
     let color: Color
     var isSkeleton: Bool = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: icon)
                     .font(.title2)
                     .foregroundStyle(color)
-                
+
                 Spacer()
             }
-            
+
             Spacer()
-            
+
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 AnimatedNumberView(
                     value: value,
                     font: .title,
+                    color: color,
                     isSkeleton: isSkeleton
                 )
-                
+
                 Text(title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .cardStyle(color: color)
+        .padding()
+        .frame(maxWidth: .infinity, minHeight: Theme.Size.cardMinHeight)
+        .neutralCardStyle()
     }
 }
 

@@ -14,7 +14,7 @@ enum Theme {
         static let scrobbles = Color.red
         static let artists = Color.purple
         static let albums = Color.blue
-        static let tracks = Color.green
+        static let tracks = Color.orange
     }
     
     // MARK: - Opacity
@@ -217,6 +217,36 @@ extension View {
     /// Applies a shimmer loading effect
     func shimmering() -> some View {
         self.modifier(ShimmerModifier())
+    }
+
+    /// Applies neutral card styling - clean minimal aesthetic with defined borders
+    func neutralCardStyle() -> some View {
+        self.modifier(NeutralCardModifier())
+    }
+}
+
+// MARK: - Neutral Card Modifier
+
+struct NeutralCardModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                    .fill(colorScheme == .dark
+                          ? Color(.systemGray6).opacity(0.5)
+                        : Color(.secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                    .stroke(
+                        colorScheme == .dark
+                            ? Color.white.opacity(0.12)
+                            : Color.black.opacity(0.1),
+                        lineWidth: Theme.StrokeWidth.medium
+                    )
+            )
     }
 }
 
