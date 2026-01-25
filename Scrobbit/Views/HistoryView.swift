@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct HistoryView: View {
-    @Environment(\.scrobbleService) private var scrobbleService
+    @Environment(ScrobbleService.self) private var scrobbleService
     @Environment(LastFmService.self) private var lastFmService
     
     @Query(filter: #Predicate<Track> { $0.scrobbleID != nil }, sort: \Track.scrobbledAt, order: .reverse)
@@ -23,7 +23,7 @@ struct HistoryView: View {
             .navigationTitle("History")
             .contentMargins(.top, -Theme.Spacing.md)
             .refreshable {
-                await scrobbleService?.performSync()
+                await scrobbleService.performSync()
             }
         }
     }

@@ -18,10 +18,9 @@ struct ScrobbitApp: App {
             MainTabView()
                 .environment(container.lastFmService)
                 .environment(container.musicKitService)
-                .environment(\.scrobbleService, container.scrobbleService)
+                .environment(container.scrobbleService)
                 .modelContainer(container.modelContainer)
                 .onAppear {
-                    // Schedule background refresh on app launch (not just backgrounding)
                     BackgroundTaskManager.scheduleBackgroundRefresh()
                 }
                 .onChange(of: scenePhase) { _, newPhase in

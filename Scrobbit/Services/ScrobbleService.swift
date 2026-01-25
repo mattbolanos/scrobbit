@@ -346,15 +346,3 @@ final class ScrobbleService {
         try modelContext.save()
     }
 }
-
-
-struct ScrobbleServiceKey: EnvironmentKey {
-    static let defaultValue: ScrobbleService? = nil
-}
-
-extension EnvironmentValues {
-    var scrobbleService: ScrobbleService? {
-        get { self[ScrobbleServiceKey.self] }
-        set { self[ScrobbleServiceKey.self] = newValue }
-    }
-}

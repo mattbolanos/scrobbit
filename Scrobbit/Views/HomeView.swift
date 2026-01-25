@@ -11,7 +11,7 @@ private enum SyncStatus {
 struct HomeView: View {
     @Environment(LastFmService.self) var lastFmService
     @Environment(MusicKitService.self) var appleMusicService
-    @Environment(\.scrobbleService) private var scrobbleService
+    @Environment(ScrobbleService.self) private var scrobbleService
     @Environment(\.scenePhase) private var scenePhase
 
     @Query(sort: \LibraryCache.lastPlayedDate, order: .reverse)
@@ -99,7 +99,7 @@ struct HomeView: View {
             Group {
                 switch syncStatus {
                 case .idle:
-                    Image(systemName: "arrow.trianglehead.2.counterclockwise")
+                    Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
                 case .syncing:
                     ProgressView()
                 case .success:
@@ -177,7 +177,7 @@ struct HomeView: View {
     private func performSync() async -> Bool {
         guard isFullyConnected else { return false }
 
-        let result = await scrobbleService?.performSync()
+        let result = await scrobbleService.performSync()
 
         if let result {
             if result.error != nil {

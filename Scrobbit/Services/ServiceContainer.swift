@@ -55,13 +55,4 @@ final class ServiceContainer {
     }
 
     private init() {}
-
-    // MARK: - Reset (for sign-out)
-
-    /// Resets all services. Call this when the user signs out.
-    func reset() {
-        _lastFmService = nil
-        _musicKitService = nil
-        _scrobbleService = nil
-    }
 }
