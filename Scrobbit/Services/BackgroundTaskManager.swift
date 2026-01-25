@@ -78,7 +78,7 @@ enum BackgroundTaskManager {
         }
 
         // Execute the scrobble sync (logging handled by ScrobbleService)
-        let result = await container.scrobbleService.performSync(includeNonCritical: false, source: .background)
+        let result = await container.scrobbleService.performSync(includeNonCritical: false)
         let scrobblesCount = result?.scrobbledCount ?? 0
         let success = result?.error == nil
 

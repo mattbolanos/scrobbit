@@ -26,21 +26,7 @@ struct TrackRow: View {
     }
     
     private var formattedPlayTime: String? {
-        guard let playTime = playedAt else { return nil }
-        let now = Date()
-        let timeInterval = now.timeIntervalSince(playTime)
-        
-        if timeInterval < 3600 {
-            let minutes = Int(timeInterval / 60)
-            return "\(minutes) \(minutes == 1 ? "min" : "mins") ago"
-        } else if timeInterval < 86400 {
-            let hours = Int(timeInterval / 3600)
-            return "\(hours) \(hours == 1 ? "hour" : "hours") ago"
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM dd HH:mm"
-            return formatter.string(from: playTime)
-        }
+        playedAt?.relativeTimeString
     }
     
     var body: some View {

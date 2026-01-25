@@ -53,10 +53,9 @@ final class ScrobbleService {
     /// - Parameters:
     ///   - includeNonCritical: If true, also refreshes history cache and prunes old entries.
     ///                         Set to false for background tasks with limited execution time.
-    ///   - source: The source of the sync (manual or background). Used for logging.
     /// Returns the number of tracks scrobbled, or nil if sync was skipped/failed.
     @discardableResult
-    func performSync(includeNonCritical: Bool = true, source: SyncSource = .manual) async -> SyncResult? {
+    func performSync(includeNonCritical: Bool = true) async -> SyncResult? {
         guard !isSyncing else { return nil }
         guard lastFmService.isAuthenticated && musicKitService.isAuthorized else { return nil }
 
@@ -91,7 +90,7 @@ final class ScrobbleService {
             }
 
             // Log successful sync
-            SyncLog.shared.record(event: .completed, source: source, scrobblesCount: scrobbledCount)
+            SyncLog.shared.record(event: .completed, scrobblesCount: scrobbledCount)
 
             return SyncResult(scrobbledCount: scrobbledCount, error: nil)
         } catch {
@@ -99,7 +98,6 @@ final class ScrobbleService {
             // Log failed sync
             SyncLog.shared.record(
                 event: .failed,
-                source: source,
                 scrobblesCount: scrobbledCount,
                 message: error.localizedDescription
             )

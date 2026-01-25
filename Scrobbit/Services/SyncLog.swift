@@ -14,13 +14,12 @@ final class SyncLog {
 
     /// Records a new sync event.
     /// Only persists entries where scrobblesCount > 0 to avoid cluttering the log.
-    func record(event: SyncEvent, source: SyncSource, scrobblesCount: Int = 0, message: String? = nil) {
+    func record(event: SyncEvent, scrobblesCount: Int = 0, message: String? = nil) {
         // Only persist entries that actually scrobbled something
         guard scrobblesCount > 0 else { return }
 
         let entry = SyncLogEntry(
             event: event,
-            source: source,
             scrobblesCount: scrobblesCount,
             message: message
         )
