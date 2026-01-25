@@ -306,8 +306,7 @@ final class LastFmService: NSObject {
     
     private func fetch<T: Decodable>(
         method: String,
-        params: [(String, String)] = [],
-        requiresSignature: Bool = false
+        params: [(String, String)] = []
     ) async throws -> T {
         let apiKey = Secrets.lastFmApiKey
         
@@ -319,12 +318,6 @@ final class LastFmService: NSObject {
         
         var components = URLComponents(string: Constants.baseURL)!
         components.queryItems = allParams.map { URLQueryItem(name: $0.0, value: $0.1) }
-        
-        if requiresSignature {
-            let signature = generateSignature(params: allParams, secret: Secrets.lastFmApiSecret)
-            components.queryItems?.append(URLQueryItem(name: "api_sig", value: signature))
-        }
-        
         components.queryItems?.append(URLQueryItem(name: "format", value: "json"))
 
         guard let url = components.url else {
@@ -466,7 +459,6 @@ private struct ScrobbleResponse: Decodable {
     
     struct ScrobbleAttr: Decodable {
         let accepted: Int
-        let ignored: Int
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -478,17 +470,10 @@ private struct ScrobbleResponse: Decodable {
                 let stringValue = try container.decode(String.self, forKey: .accepted)
                 accepted = Int(stringValue) ?? 0
             }
-
-            if let intValue = try? container.decode(Int.self, forKey: .ignored) {
-                ignored = intValue
-            } else {
-                let stringValue = try container.decode(String.self, forKey: .ignored)
-                ignored = Int(stringValue) ?? 0
-            }
         }
 
         enum CodingKeys: String, CodingKey {
-            case accepted, ignored
+            case accepted
         }
     }
 }
