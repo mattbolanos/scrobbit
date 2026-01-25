@@ -4,17 +4,8 @@ enum Theme {
     // MARK: - Colors
     
     enum Colors {
-        /// Primary accent color used throughout the app
         static let accent = Color.red
-        
-        /// Success indicator color
         static let success = Color.green
-        
-        /// Stat card specific colors
-        static let scrobbles = Color.red
-        static let artists = Color.purple
-        static let albums = Color.blue
-        static let tracks = Color.orange
     }
     
     // MARK: - Opacity
@@ -242,8 +233,8 @@ struct NeutralCardModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                     .stroke(
                         colorScheme == .dark
-                            ? Color.white.opacity(0.12)
-                            : Color.black.opacity(0.1),
+                            ? Color.white.opacity(0.11)
+                        : Color.gray.opacity(0.24),
                         lineWidth: Theme.StrokeWidth.medium
                     )
             )

@@ -8,12 +8,12 @@ struct StatsGrid: View {
         GridItem(.flexible(), spacing: Theme.Spacing.md)
     ]
 
-    private var stats: [(title: String, icon: String, color: Color, value: Int)] {
+    private var stats: [(title: String, icon: String, value: Int)] {
         [
-            (title: "Scrobbles", icon: "waveform", color: Theme.Colors.scrobbles, value: userInfo.playcountInt),
-            (title: "Artists", icon: "music.microphone", color: Theme.Colors.artists, value: userInfo.artistCountInt),
-            (title: "Albums", icon: "music.note.square.stack.fill", color: Theme.Colors.albums, value: userInfo.albumCountInt),
-            (title: "Tracks", icon: "music.note.list", color: Theme.Colors.tracks, value: userInfo.trackCountInt)
+            (title: "Scrobbles", icon: "waveform", value: userInfo.playcountInt),
+            (title: "Artists", icon: "music.microphone", value: userInfo.artistCountInt),
+            (title: "Albums", icon: "music.note.square.stack.fill", value: userInfo.albumCountInt),
+            (title: "Tracks", icon: "music.note.list", value: userInfo.trackCountInt)
         ]
     }
     
@@ -24,7 +24,6 @@ struct StatsGrid: View {
                     title: stats[index].title,
                     value: stats[index].value,
                     icon: stats[index].icon,
-                    color: stats[index].color,
                     isSkeleton: false
                 )
             }
@@ -38,11 +37,11 @@ struct StatsGridSkeleton: View {
         GridItem(.flexible(), spacing: Theme.Spacing.md)
     ]
     
-    private let stats: [(title: String, icon: String, color: Color)] = [
-        (title: "Scrobbles", icon: "waveform", color: Theme.Colors.scrobbles),
-        (title: "Artists", icon: "music.microphone", color: Theme.Colors.artists),
-        (title: "Albums", icon: "music.note.square.stack.fill", color: Theme.Colors.albums),
-        (title: "Tracks", icon: "music.note.list", color: Theme.Colors.tracks)
+    private let stats: [(title: String, icon: String)] = [
+        (title: "Scrobbles", icon: "waveform"),
+        (title: "Artists", icon: "music.microphone"),
+        (title: "Albums", icon: "music.note.square.stack.fill"),
+        (title: "Tracks", icon: "music.note.list")
     ]
     
     var body: some View {
@@ -52,7 +51,6 @@ struct StatsGridSkeleton: View {
                     title: stats[index].title,
                     value: 0,
                     icon: stats[index].icon,
-                    color: stats[index].color,
                     isSkeleton: true
                 )
             }
