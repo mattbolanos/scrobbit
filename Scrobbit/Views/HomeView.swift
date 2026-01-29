@@ -87,11 +87,15 @@ struct HomeView: View {
     private var syncButton: some View {
         Button {
             guard syncStatus == .idle else { return }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             Task {
                 syncStatus = .syncing
                 let success = await performSync()
                 syncStatus = success ? .success : .failure
-                
+
+                let feedback = UINotificationFeedbackGenerator()
+                feedback.notificationOccurred(success ? .success : .error)
+
                 try? await Task.sleep(for: .seconds(1.5))
                 syncStatus = .idle
             }
